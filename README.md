@@ -94,6 +94,11 @@ Revived From Original Swifile
 
 Contributions are welcome! If you have any ideas or improvements, please feel free to submit a pull request or open an issue.
 
+## Thanks to..
+Thanks to AppinstalleriOS for the Shell Script!
+Thanks to FridaCodeManager Team for the on-device compiler!
+Thanks to le bao nguyen for the idea of sort options and action confirmations!
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
