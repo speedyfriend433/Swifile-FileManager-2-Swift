@@ -5,6 +5,7 @@
 //
  
 import SwiftUI
+import Foundation
 
 struct DirectoryView: View {
     @StateObject private var viewModel: FileManagerViewModel
@@ -178,10 +179,10 @@ struct DirectoryView: View {
             ) { newName in
                 if let item = itemToRenameOrCopy {
                     if isRenaming {
-                        viewModel.renameFile(at: item.path, to: newName)
+                        viewModel.renameFile(at: item.url, to: newName)
                         statusMessage = "Renamed \(item.isDirectory ? "folder" : "file") to: \(newName)"
                     } else {
-                        viewModel.copyFile(at: item.path, to: newName)
+                        viewModel.copyFile(at: item.url, to: newName)
                         statusMessage = "Copied \(item.isDirectory ? "folder" : "file") to: \(newName)"
                     }
                     showingStatusAlert = true
@@ -201,7 +202,7 @@ struct DirectoryView: View {
                 message: Text("Are you sure you want to delete \(itemToDelete?.name ?? "this item")?"),
                 primaryButton: .destructive(Text("Delete")) {
                     if let item = itemToDelete {
-                        viewModel.deleteFile(at: item.path)
+                        viewModel.deleteFile(at: item.url)
                         statusMessage = "Deleted \(item.isDirectory ? "folder" : "file"): \(item.name)"
                         showingStatusAlert = true
                     } else {
@@ -229,26 +230,38 @@ struct DirectoryView: View {
 
     @ViewBuilder
 private func destinationView(for item: FileSystemItem) -> some View {
-    if item.isDirectory {
-        DirectoryView(directory: item.path)
-    } else if item.name.hasSuffix(".txt") {
-        TextFileView(fileURL: item.path)
+    if item.isSymlink {
+        if let resolvedURL = resolveSymlink(at: item.url) {
+            DirectoryView(directory: resolvedURL)
+        } else {
+            Text("Invalid symlink: \(item.name)")
+        }
+    } else if item.isDirectory {
+        DirectoryView(directory: item.url)
+    } else if item.name.hasSuffix(".txt") ||
+item.name.hasSuffix(".js") || item.name.hasSuffix(".py") || item.name.hasSuffix(".xm") ||
+item.name.hasSuffix(".mm") || item.name.hasSuffix(".swift") || item.name.hasSuffix(".hh") {
+        TextFileView(fileURL: item.url)
     } else if item.name.hasSuffix(".png") || item.name.hasSuffix(".jpg") || item.name.hasSuffix(".jpeg") {
-        ImageFileView(fileURL: item.path)
-    } else if item.name.hasSuffix(".plist") || item.name.hasSuffix(".entitlements") {
-        PlistEditorView(fileURL: item.path)
+        ImageMetadataView(fileURL: item.url)
+    } else if item.name.hasSuffix(".plist") || item.name.hasSuffix(".xml") || item.name.hasSuffix(".entitlements") {
+        PlistEditorView(fileURL: item.url)
     } else if item.name.hasSuffix(".bin") || item.name.hasSuffix(".dylib") || item.name.hasSuffix(".geode") {
-        HexEditorView(fileURL: item.path)
-    } else if item.name.hasSuffix(".ipa") || item.name.hasSuffix(".deb") {
-        FileDetailView(fileURL: item.path)
+        HexEditorView(fileURL: item.url)
+    } else if item.name.hasSuffix(".ipa") || item.name.hasSuffix(".deb") || item.name.hasSuffix(".jp2") || item.name.hasSuffix(".xz") || item.name.hasSuffix(".zip") {
+        FileDetailView(fileURL: item.url)
     } else {
         Text("File: \(item.name)")
     }
 }
 }
-
-struct DirectoryView_Previews: PreviewProvider {
-    static var previews: some View {
-        DirectoryView(directory: URL(fileURLWithPath: "/var"))
+    
+    func resolveSymlink(at url: URL) -> URL? {
+    do {
+        let destination = try FileManager.default.destinationOfSymbolicLink(atPath: url.path)
+        return URL(fileURLWithPath: destination)
+    } catch {
+        print("Failed to resolve symlink: \(error.localizedDescription)")
+        return nil
     }
 }

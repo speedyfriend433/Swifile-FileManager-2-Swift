@@ -25,13 +25,15 @@ struct PlistEditorView: View {
                     ForEach(plistContent.keys.sorted(), id: \.self) { key in
                         HStack {
                             Text(key)
+                                .font(.headline)
                             Spacer()
                             valueView(for: key, value: plistContent[key]!)
                         }
                     }
                 }
-                .navigationBarItems(trailing: Button("Save") {
-                    saveFile()
+                .listStyle(InsetGroupedListStyle())
+                .navigationBarItems(trailing: Button(action: saveFile) {
+                    Text("Save")
                 })
             }
         }
@@ -158,6 +160,9 @@ struct PlistArrayView: View {
                 }
             }
         }
+        .listStyle(InsetGroupedListStyle())
+        .navigationTitle("Array")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -169,12 +174,14 @@ struct NestedPlistEditorView: View {
             ForEach(plistContent.keys.sorted(), id: \.self) { key in
                 HStack {
                     Text(key)
+                        .font(.headline)
                     Spacer()
                     valueView(for: key, value: plistContent[key]!)
                 }
             }
         }
-        .navigationTitle("Nested Dictionary")
+        .listStyle(InsetGroupedListStyle())
+        .navigationTitle("Dictionary")
         .navigationBarTitleDisplayMode(.inline)
     }
 
