@@ -44,15 +44,16 @@ class FileManagerViewModel: ObservableObject {
 
     func loadFiles() {
         do {
-            let directoryContents = try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey], options: [.skipsHiddenFiles])
+            let directoryContents = try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [.skipsHiddenFiles])
             DispatchQueue.main.async {
                 self.items = directoryContents.map { url in
-                    let resourceValues = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey])
+                    let resourceValues = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
                     let isDirectory = resourceValues?.isDirectory ?? false
+                    let isSymlink = resourceValues?.isSymbolicLink ?? false
                     let fileSize = resourceValues?.fileSize ?? 0
                     let creationDate = resourceValues?.creationDate ?? Date()
                     let modificationDate = resourceValues?.contentModificationDate ?? Date()
-                    return FileSystemItem(name: url.lastPathComponent, isDirectory: isDirectory, path: url, size: fileSize, creationDate: creationDate, modificationDate: modificationDate)
+                    return FileSystemItem(name: url.lastPathComponent, isDirectory: isDirectory, url: url, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
                 }
                 self.sortItems()
                 self.filterItems()
@@ -62,45 +63,18 @@ class FileManagerViewModel: ObservableObject {
         }
     }
 
-    func loadRootFiles() {
-        isSearching = true
-        rootSearchCancellable?.cancel()
-        rootSearchCancellable = Future<[FileSystemItem], Error> { promise in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let rootURL = URL(fileURLWithPath: "/")
-                let rootItems = self.recursiveFileSearch(at: rootURL)
-                promise(.success(rootItems))
-            }
-        }
-        .receive(on: DispatchQueue.main)
-        .sink { completion in
-            if case .failure(let error) = completion {
-                print("Failed to search root files: \(error.localizedDescription)")
-                self.isSearching = false
-            }
-        } receiveValue: { rootItems in
-            self.rootItems = rootItems
-            self.isSearching = false
-            self.filterItems()
-        }
-    }
-
-    private func cancelRootSearch() {
-        rootSearchCancellable?.cancel()
-        isSearching = false
-    }
-
     private func recursiveFileSearch(at url: URL) -> [FileSystemItem] {
         var result: [FileSystemItem] = []
         do {
-            let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey], options: [.skipsHiddenFiles])
+            let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [.skipsHiddenFiles])
             for item in contents {
-                let resourceValues = try? item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey])
+                let resourceValues = try? item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
                 let isDirectory = resourceValues?.isDirectory ?? false
+                let isSymlink = resourceValues?.isSymbolicLink ?? false
                 let fileSize = resourceValues?.fileSize ?? 0
                 let creationDate = resourceValues?.creationDate ?? Date()
                 let modificationDate = resourceValues?.contentModificationDate ?? Date()
-                let fileSystemItem = FileSystemItem(name: item.lastPathComponent, isDirectory: isDirectory, path: item, size: fileSize, creationDate: creationDate, modificationDate: modificationDate)
+                let fileSystemItem = FileSystemItem(name: item.lastPathComponent, isDirectory: isDirectory, url: item, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
                 if fileSystemItem.name.lowercased().contains(searchQuery.lowercased()) {
                     result.append(fileSystemItem)
                 }
@@ -113,6 +87,7 @@ class FileManagerViewModel: ObservableObject {
         }
         return result
     }
+}
 
     func sortItems() {
         switch sortOption {
@@ -156,7 +131,7 @@ class FileManagerViewModel: ObservableObject {
     func deleteSelectedFiles() {
         for id in selectedItems {
             if let item = items.first(where: { $0.id == id }) {
-                deleteFile(at: item.path)
+                deleteFile(at: item.url)
             }
         }
         selectedItems.removeAll()
@@ -192,6 +167,7 @@ class FileManagerViewModel: ObservableObject {
         } catch {
             print("Failed to rename file: \(error.localizedDescription)")
         }
+   
     }
 
     func copyFile(at url: URL, to newName: String) {
