@@ -91,9 +91,9 @@ Revived From Original Swifile
 - **Caching**: Implement caching for frequently accessed directories to speed up navigation.
 
 ## Screenshots
-(https://github.com/speedyfriend433/Swifile-FileManager-2-Swift/assets/171631703/05a97cbf-55a0-4028-9e43-c958bd87944d)
+[screenshot1](https://github.com/speedyfriend433/Swifile-FileManager-2-Swift/assets/171631703/05a97cbf-55a0-4028-9e43-c958bd87944d)
 
-(https://github.com/speedyfriend433/Swifile-FileManager-2-Swift/assets/171631703/64b30c60-e474-44d4-9b6a-ccd336519d10)
+[screenshot2](https://github.com/speedyfriend433/Swifile-FileManager-2-Swift/assets/171631703/64b30c60-e474-44d4-9b6a-ccd336519d10)
 
 ## Contribution
 
