@@ -28,7 +28,7 @@ class FileManagerViewModel: ObservableObject {
     @Published var searchScope: SearchScope = .current {
         didSet {
             if searchScope == .root {
-                filteredItems = [] // 초기에는 빈 목록을 설정
+                filteredItems = [] 
             } else {
                 cancelRootSearch()
                 filterItems()
