@@ -5,7 +5,6 @@
 //
  
 import SwiftUI
-import Foundation
 
 struct DirectoryView: View {
     @StateObject private var viewModel: FileManagerViewModel
@@ -23,6 +22,7 @@ struct DirectoryView: View {
     @State private var showingSortOptions = false
     @State private var showingSearchBar = false
     @State private var isEditing = false
+    @State private var isRootScopeActive = false
 
     init(directory: URL) {
         _viewModel = StateObject(wrappedValue: FileManagerViewModel(directory: directory))
@@ -37,11 +37,21 @@ struct DirectoryView: View {
                 }
                 .pickerStyle(SegmentedPickerStyle())
                 .padding([.leading, .trailing, .top])
+                .onChange(of: viewModel.searchScope) { newScope in
+                    isRootScopeActive = (newScope == .root)
+                }
             }
 
             if showingSearchBar {
-                SearchBar(text: $viewModel.searchQuery)
-                    .padding([.leading, .trailing])
+                SearchBar(text: $viewModel.searchQuery, onSearchButtonClicked: {
+                    if isRootScopeActive {
+                        viewModel.startRootSearch()
+                    } else {
+                        viewModel.filterItems()
+                    }
+                    hideKeyboard()
+                })
+                .padding([.leading, .trailing])
             }
 
             if viewModel.isSearching {
@@ -62,7 +72,7 @@ struct DirectoryView: View {
                                             }
                                         }
                                 }
-                                Image(systemName: item.isDirectory ? "folder" : "doc")
+                                Image(systemName: item.isDirectory ? "folder" : (item.isSymlink ? "link" : "doc"))
                                 Text(item.name)
                                 Spacer()
                                 if !item.isDirectory {
@@ -120,9 +130,6 @@ struct DirectoryView: View {
             Button(action: {
                 withAnimation {
                     showingSearchBar.toggle()
-                    if showingSearchBar && viewModel.searchScope == .root {
-                        viewModel.loadRootFiles()
-                    }
                 }
             }) {
                 Image(systemName: "magnifyingglass")
@@ -228,35 +235,30 @@ struct DirectoryView: View {
         }
     }
 
-    @ViewBuilder
-private func destinationView(for item: FileSystemItem) -> some View {
-    if item.isSymlink {
-        if let resolvedURL = resolveSymlink(at: item.url) {
-            DirectoryView(directory: resolvedURL)
-        } else {
-            Text("Invalid symlink: \(item.name)")
-        }
-    } else if item.isDirectory {
-        DirectoryView(directory: item.url)
-    } else if item.name.hasSuffix(".txt") ||
-item.name.hasSuffix(".js") || item.name.hasSuffix(".py") || item.name.hasSuffix(".xm") ||
-item.name.hasSuffix(".mm") || item.name.hasSuffix(".swift") || item.name.hasSuffix(".hh") {
-        TextFileView(fileURL: item.url)
-    } else if item.name.hasSuffix(".png") || item.name.hasSuffix(".jpg") || item.name.hasSuffix(".jpeg") {
-        ImageMetadataView(fileURL: item.url)
-    } else if item.name.hasSuffix(".plist") || item.name.hasSuffix(".xml") || item.name.hasSuffix(".entitlements") {
-        PlistEditorView(fileURL: item.url)
-    } else if item.name.hasSuffix(".bin") || item.name.hasSuffix(".dylib") || item.name.hasSuffix(".geode") {
-        HexEditorView(fileURL: item.url)
-    } else if item.name.hasSuffix(".ipa") || item.name.hasSuffix(".deb") || item.name.hasSuffix(".jp2") || item.name.hasSuffix(".xz") || item.name.hasSuffix(".zip") {
-        FileDetailView(fileURL: item.url)
-    } else {
-        Text("File: \(item.name)")
+    private func destinationView(for item: FileSystemItem) -> some View {
+        if item.isSymlink {
+            if let resolvedURL = resolveSymlink(at: item.url) {
+                return AnyView(DirectoryView(directory: resolvedURL))
+            } else {
+                return AnyView(Text("Invalid symlink: \(item.name)"))
+            }
+        } else if item.isDirectory {
+            return AnyView(DirectoryView(directory: item.url))
+        } else if item.name.hasSuffix(".txt") {
+            return AnyView(TextFileView(fileURL: item.url))
+        } else if item.name.hasSuffix(".png") || item.name.hasSuffix(".jpg") || item.name.hasSuffix(".jpeg") || item.name.hasSuffix(".car") || item.name.hasSuffix(".heic") {
+            return AnyView(ImageFileView(fileURL: item.url))
+        } else if item.name.hasSuffix(".plist") || item.name.hasSuffix(".xml") || item.name.hasSuffix(".entitlements") {
+            return AnyView(PlistEditorView(fileURL: item.url))
+        } else if item.name.hasSuffix(".bin") || item.name.hasSuffix(".dylib") || item.name.hasSuffix(".geode") {
+            return AnyView(HexEditorView(fileURL: item.url))
+        } else if item.name.hasSuffix(".ipa") || item.name.hasSuffix(".deb") || item.name.hasSuffix(".jp2") || item.name.hasSuffix(".xz") || item.name.hasSuffix(".zip") {
+            return AnyView(FileDetailView(fileURL: item.url))    } else {
+        return AnyView(Text("File: \(item.name)"))
     }
 }
-}
-    
-    func resolveSymlink(at url: URL) -> URL? {
+
+private func resolveSymlink(at url: URL) -> URL? {
     do {
         let destination = try FileManager.default.destinationOfSymbolicLink(atPath: url.path)
         return URL(fileURLWithPath: destination)
@@ -264,4 +266,8 @@ item.name.hasSuffix(".mm") || item.name.hasSuffix(".swift") || item.name.hasSuff
         print("Failed to resolve symlink: \(error.localizedDescription)")
         return nil
     }
+}
+
+private func hideKeyboard() {
+    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
 }
