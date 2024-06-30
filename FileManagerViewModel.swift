@@ -4,6 +4,7 @@
 // Created by Speedyfriend67 on 27.06.24
 //
 
+
 import Foundation
 import Combine
 
@@ -28,7 +29,7 @@ class FileManagerViewModel: ObservableObject {
     @Published var searchScope: SearchScope = .current {
         didSet {
             if searchScope == .root {
-                prepareForRootSearch()
+                clearRootItems()
             } else {
                 cancelRootSearch()
                 filterItems()
@@ -120,11 +121,8 @@ class FileManagerViewModel: ObservableObject {
         }
     }
 
-    func prepareForRootSearch() {
-        rootItems.removeAll()
-    }
-
     func performSearch() {
+        guard !searchQuery.isEmpty else { return }
         isSearching = true
         rootSearchCancellable?.cancel()
         let searchResults = FileSearchResults()
@@ -144,6 +142,11 @@ class FileManagerViewModel: ObservableObject {
     private func cancelRootSearch() {
         rootSearchCancellable?.cancel()
         isSearching = false
+    }
+
+    func clearRootItems() {
+        rootItems.removeAll()
+        filteredItems.removeAll()
     }
 
     func sortItems() {

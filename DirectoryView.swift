@@ -3,6 +3,7 @@
 //
 // Created by Speedyfriend67 on 27.06.24
 //
+// Ensure you have the necessary imports
 import SwiftUI
 
 struct DirectoryView: View {
@@ -21,6 +22,7 @@ struct DirectoryView: View {
     @State private var showingSortOptions = false
     @State private var showingSearchBar = false
     @State private var isEditing = false
+    @State private var isSearchActive = false
 
     init(directory: URL) {
         _viewModel = StateObject(wrappedValue: FileManagerViewModel(directory: directory))
@@ -39,7 +41,10 @@ struct DirectoryView: View {
 
             if showingSearchBar {
                 SearchBar(text: $viewModel.searchQuery, onSearchButtonClicked: {
-                    viewModel.performSearch()
+                    if viewModel.searchScope == .root {
+                        isSearchActive = true
+                        viewModel.performSearch()
+                    }
                 })
                 .padding([.leading, .trailing])
             }
@@ -121,7 +126,8 @@ struct DirectoryView: View {
                 withAnimation {
                     showingSearchBar.toggle()
                     if showingSearchBar && viewModel.searchScope == .root {
-                        viewModel.prepareForRootSearch()
+                        isSearchActive = false
+                        viewModel.clearRootItems()
                     }
                 }
             }) {
@@ -243,14 +249,14 @@ struct DirectoryView: View {
         } else if item.name.hasSuffix(".png") || item.name.hasSuffix(".jpg") || item.name.hasSuffix(".jpeg") || item.name.hasSuffix(".car") || item.name.hasSuffix(".heic") {
             ImageFileView(fileURL: item.url)
         } else if item.name.hasSuffix(".plist") || item.name.hasSuffix(".xml") ||
-item.name.hasSuffix(".entitlements") {
+                    item.name.hasSuffix(".entitlements") {
             PlistEditorView(fileURL: item.url)
         } else if item.name.hasSuffix(".bin") || item.name.hasSuffix(".dylib") || item.name.hasSuffix(".geode") {
             HexEditorView(fileURL: item.url)
         } else if item.name.hasSuffix(".ipa") || item.name.hasSuffix(".deb") ||
-item.name.hasSuffix(".jp2") ||
-item.name.hasSuffix(".xz") ||
-item.name.hasSuffix(".zip") {
+                    item.name.hasSuffix(".jp2") ||
+                    item.name.hasSuffix(".xz") ||
+                    item.name.hasSuffix(".zip") {
             FileDetailView(fileURL: item.url)
         } else {
             Text("File: \(item.name)")
@@ -260,10 +266,10 @@ item.name.hasSuffix(".zip") {
     private func resolveSymlink(at url: URL) -> URL? {
         do {
             let destination = try FileManager.default.destinationOfSymbolicLink(atPath: url.path)
-            return URL(fileURLWithPath: destination)
-        } catch {
-            print("Failed to resolve symlink: \(error.localizedDescription)")
-            return nil
-        }
-    }
+return URL(fileURLWithPath: destination)
+} catch {
+print("Failed to resolve symlink: (error.localizedDescription)")
+return nil
+}
+}
 }
