@@ -213,15 +213,23 @@ class FileManagerViewModel: ObservableObject {
     }
 
     func createFile(named fileName: String) {
-        let fileURL = directory.appendingPathComponent(fileName)
-        let content = "This is a new file."
-        do {
-            try content.write(to: fileURL, atomically: true, encoding: .utf8)
-            loadFiles()
-        } catch {
-            print("Failed to create file: \(error.localizedDescription)")
-        }
+    let fileURL = directory.appendingPathComponent(fileName)
+    let content = "This is a new file."
+    do {
+        try content.write(to: fileURL, atomically: true, encoding: .utf8)
+        // Instead of reloading the files which might cause duplicates, just add the new file to the items array
+        let resourceValues = try? fileURL.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
+        let fileSize = resourceValues?.fileSize ?? 0
+        let creationDate = resourceValues?.creationDate ?? Date()
+        let modificationDate = resourceValues?.contentModificationDate ?? Date()
+        let newItem = FileSystemItem(name: fileURL.lastPathComponent, isDirectory: false, url: fileURL, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: false)
+        items.append(newItem)
+        sortItems()
+        filterItems()
+    } catch {
+        print("Failed to create file: \(error.localizedDescription)")
     }
+}
 
     func createFolder(named folderName: String) {
         let folderURL = directory.appendingPathComponent(folderName)

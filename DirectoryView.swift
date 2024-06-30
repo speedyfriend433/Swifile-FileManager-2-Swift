@@ -162,21 +162,21 @@ struct DirectoryView: View {
             ])
         }
         .sheet(isPresented: $showingAddItemSheet) {
-            AddItemView(
-                isPresented: $showingAddItemSheet,
-                isDirectory: isAddingDirectory,
-                existingNames: viewModel.items.map { $0.name }
-            ) { name in
-                if isAddingDirectory {
-                    viewModel.createFolder(named: name)
-                    statusMessage = "Created folder: \(name)"
-                } else {
-                    viewModel.createFile(named: name)
-                    statusMessage = "Created file: \(name)"
-                }
-                showingStatusAlert = true
-            }
+    AddItemView(
+        isPresented: $showingAddItemSheet,
+        isDirectory: isAddingDirectory,
+        existingNames: viewModel.items.map { $0.name }
+    ) { name in
+        if isAddingDirectory {
+            viewModel.createFolder(named: name)
+            statusMessage = "Created folder: \(name)"
+        } else {
+            viewModel.createFile(named: name)
+            statusMessage = "Created file: \(name)"
         }
+        showingStatusAlert = true
+    }
+}
         .sheet(isPresented: $showingRenameCopySheet) {
             RenameCopyView(
                 newName: $newName,
@@ -244,7 +244,7 @@ struct DirectoryView: View {
             }
         } else if item.isDirectory {
             DirectoryView(directory: item.url)
-        } else if item.name.hasSuffix(".txt") {
+        } else if item.name.hasSuffix(".txt") || item.name.hasSuffix(".zshrc") {
             TextFileView(fileURL: item.url)
         } else if item.name.hasSuffix(".png") || item.name.hasSuffix(".jpg") || item.name.hasSuffix(".jpeg") || item.name.hasSuffix(".car") || item.name.hasSuffix(".heic") {
             ImageFileView(fileURL: item.url)
