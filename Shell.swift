@@ -31,9 +31,9 @@ func runCommand(_ command: String, _ args: [String], _ uid: uid_t, _ rootPath: S
     defer { for case let pro? in proenv { free(pro) } }
     var attr: posix_spawnattr_t?
     posix_spawnattr_init(&attr)
-    posix_spawnattr_set_persona_np(&attr, 99, 1)
-    posix_spawnattr_set_persona_uid_np(&attr, uid)
-    posix_spawnattr_set_persona_gid_np(&attr, uid)
+    _ = posix_spawnattr_set_persona_np(&attr, 99, 1)
+    _ = posix_spawnattr_set_persona_uid_np(&attr, uid)
+    _ = posix_spawnattr_set_persona_gid_np(&attr, uid)
     guard posix_spawn(&pid, rootPath + command, nil, &attr, argv + [nil], proenv + [nil]) == 0 else {
         print("Failed to spawn process")
         return -1

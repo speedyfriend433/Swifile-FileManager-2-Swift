@@ -4,7 +4,6 @@
 // Created by Speedyfriend67 on 27.06.24
 //
 
-
 import Foundation
 import Combine
 
@@ -97,28 +96,42 @@ class FileManagerViewModel: ObservableObject {
     }
 
     private func recursiveFileSearch(at url: URL, result: FileSearchResults) {
-        do {
-            let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
-            let totalContents = contents.count
-            for (index, item) in contents.enumerated() {
-                let resourceValues = try? item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
-                let isDirectory = resourceValues?.isDirectory ?? false
-                let isSymlink = resourceValues?.isSymbolicLink ?? false
-                let fileSize = resourceValues?.fileSize ?? 0
-                let creationDate = resourceValues?.creationDate ?? Date()
-                let modificationDate = resourceValues?.contentModificationDate ?? Date()
-                let fileSystemItem = FileSystemItem(name: item.lastPathComponent, isDirectory: isDirectory, url: item, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
+    do {
+        let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
+        for item in contents {
+            let resourceValues = try? item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
+            let isDirectory = resourceValues?.isDirectory ?? false
+            let isSymlink = resourceValues?.isSymbolicLink ?? false
+            let fileSize = resourceValues?.fileSize ?? 0
+            let creationDate = resourceValues?.creationDate ?? Date()
+            let modificationDate = resourceValues?.contentModificationDate ?? Date()
+            let fileSystemItem = FileSystemItem(name: item.lastPathComponent, isDirectory: isDirectory, url: item, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
+            if shouldIncludeItem(fileSystemItem) {
                 DispatchQueue.main.async {
                     result.items.append(fileSystemItem)
-                    self.progress = Double(index + 1) / Double(totalContents)
-                }
-                if isDirectory {
-                    recursiveFileSearch(at: item, result: result)
                 }
             }
-        } catch {
-            print("Failed to search files: \(error.localizedDescription)")
+            if isDirectory {
+                recursiveFileSearch(at: item, result: result)
+            }
         }
+    } catch {
+        print("Failed to search files: \(error.localizedDescription)")
+    }
+}
+
+    private func shouldIncludeItem(_ item: FileSystemItem) -> Bool {
+        if searchQuery.isEmpty {
+            return true
+        }
+        let query = searchQuery.lowercased()
+        if item.name.lowercased().contains(query) {
+            return true
+        }
+        if let content = try? String(contentsOf: item.url).lowercased(), content.contains(query) {
+            return true
+        }
+        return false
     }
 
     func performSearch() {
@@ -129,7 +142,7 @@ class FileManagerViewModel: ObservableObject {
         rootSearchCancellable = searchResults.$items
             .receive(on: DispatchQueue.main)
             .sink { [weak self] items in
-                self?.rootItems = items
+                self?.rootItems = items.sorted { $0.url.path < $1.url.path }
                 self?.isSearching = false
                 self?.filterItems()
             }
@@ -236,7 +249,6 @@ class FileManagerViewModel: ObservableObject {
             try fileManager.copyItem(at: url, to: newURL)
             loadFiles()
         } catch {
-            print("Failed to copy file: \(error.localizedDescription)")
-        }
-    }
+            print("Failed to copy file: \(error.localizedDescription)")    }
+}
 }

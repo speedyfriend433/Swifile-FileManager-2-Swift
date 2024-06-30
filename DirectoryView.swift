@@ -3,8 +3,7 @@
 //
 // Created by Speedyfriend67 on 27.06.24
 //
-// Ensure you have the necessary imports cuz i forgot to add import swiftui lmfao
-
+// Ensure you have the necessary imports
 import SwiftUI
 
 struct DirectoryView: View {
@@ -267,8 +266,8 @@ struct DirectoryView: View {
     private func resolveSymlink(at url: URL) -> URL? {
         do {
             let destination = try FileManager.default.destinationOfSymbolicLink(atPath: url.path)
-return URL(fileURLWithPath: destination)
-} catch {
+            return URL(fileURLWithPath: destination)
+       } catch {
 print("Failed to resolve symlink: (error.localizedDescription)")
 return nil
 }
