@@ -28,7 +28,7 @@ class FileManagerViewModel: ObservableObject {
     @Published var searchScope: SearchScope = .current {
         didSet {
             if searchScope == .root {
-                filteredItems = [] 
+                prepareForRootSearch()
             } else {
                 cancelRootSearch()
                 filterItems()
@@ -51,7 +51,7 @@ class FileManagerViewModel: ObservableObject {
         formatter.countStyle = .file
         return formatter.string(fromByteCount: Int64(size))
     }
-
+    
     func addFile(at url: URL) {
         let destinationURL = directory.appendingPathComponent(url.lastPathComponent)
         do {
@@ -95,22 +95,6 @@ class FileManagerViewModel: ObservableObject {
         }
     }
 
-    func startRootSearch() {
-        isSearching = true
-        rootSearchCancellable?.cancel()
-        let searchResults = FileSearchResults()
-        rootSearchCancellable = searchResults.$items
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] items in
-                self?.rootItems = items
-                self?.filterItems()
-            }
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            self.recursiveFileSearch(at: URL(fileURLWithPath: "/"), result: searchResults)
-        }
-    }
-
     private func recursiveFileSearch(at url: URL, result: FileSearchResults) {
         do {
             let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
@@ -133,6 +117,27 @@ class FileManagerViewModel: ObservableObject {
             }
         } catch {
             print("Failed to search files: \(error.localizedDescription)")
+        }
+    }
+
+    func prepareForRootSearch() {
+        rootItems.removeAll()
+    }
+
+    func performSearch() {
+        isSearching = true
+        rootSearchCancellable?.cancel()
+        let searchResults = FileSearchResults()
+        rootSearchCancellable = searchResults.$items
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] items in
+                self?.rootItems = items
+                self?.isSearching = false
+                self?.filterItems()
+            }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            self.recursiveFileSearch(at: URL(fileURLWithPath: "/"), result: searchResults)
         }
     }
 
@@ -231,8 +236,4 @@ class FileManagerViewModel: ObservableObject {
             print("Failed to copy file: \(error.localizedDescription)")
         }
     }
-}
-
-class FileSearchResults: ObservableObject {
-    @Published var items: [FileSystemItem] = []
 }
