@@ -31,7 +31,7 @@ Revived From Original Swifile
 - **Text Files**: View and edit `.txt` files.
 - **Image Files**: View image files (`.png`, `.jpg`, `.jpeg`).
 - **Plist Files**: View and edit plist files (`.plist`, `.entitlements`).
-- **Hex Editor**: View and edit binary files (`.bin`, `.dylib`, `.geode`) in a hex editor.
+- **Hex Editor**: View and edit binary files (`.bin`, `.dylib`) in a hex editor.
 - **Application Packages**: View details of `.ipa` and `.deb` files, including name, description, size, and a share option.
 
 ### File Detail View
