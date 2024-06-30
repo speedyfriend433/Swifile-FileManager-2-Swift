@@ -3,7 +3,8 @@
 //
 // Created by Speedyfriend67 on 27.06.24
 //
-// Ensure you have the necessary imports
+// Ensure you have the necessary imports cuz i forgot to add import swiftui lmfao
+
 import SwiftUI
 
 struct DirectoryView: View {
