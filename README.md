@@ -90,6 +90,15 @@ Revived From Original Swifile
 - **Asynchronous Loading**: Improve the responsiveness of the UI by optimizing file loading operations.
 - **Caching**: Implement caching for frequently accessed directories to speed up navigation.
 
+## To-Do List
+
+- file / folder functions fix on /var (restricted to /mobile yet)
+- info button fix
+- add files metadata view
+- support for more file extensions 
+- add music , video player
+- zip archive (will be implemented in Xcode after this update is completed)
+
 ## Screenshots
 ![screenshot1](https://github.com/speedyfriend433/Swifile-FileManager-2-Swift/assets/171631703/05a97cbf-55a0-4028-9e43-c958bd87944d)
 
