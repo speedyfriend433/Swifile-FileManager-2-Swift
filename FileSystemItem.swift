@@ -7,12 +7,12 @@
 import Foundation
 
 struct FileSystemItem: Identifiable {
-    let id = UUID()
-    let name: String
-    let isDirectory: Bool
-    let url: URL
-    let size: Int
-    let creationDate: Date
-    let modificationDate: Date
-    let isSymlink: Bool
+    var id = UUID()
+    var name: String
+    var isDirectory: Bool
+    var url: URL
+    var size: Int
+    var creationDate: Date
+    var modificationDate: Date
+    var isSymlink: Bool
 }

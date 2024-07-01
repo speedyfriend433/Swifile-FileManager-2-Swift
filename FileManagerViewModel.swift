@@ -1,18 +1,12 @@
-//
-// FileManagerViewModel.swift
-//
-// Created by Speedyfriend67 on 27.06.24
-//
-
 import Foundation
 import Combine
 
 class FileManagerViewModel: ObservableObject {
     @Published var items: [FileSystemItem] = []
     @Published var filteredItems: [FileSystemItem] = []
-    @Published var progress: Double = 0.0
     @Published var rootItems: [FileSystemItem] = []
     @Published var selectedItems: Set<UUID> = []
+    @Published var selectedFile: FileSystemItem?
     @Published var sortOption: SortOption = .name {
         didSet {
             sortItems()
@@ -34,8 +28,6 @@ class FileManagerViewModel: ObservableObject {
         }
     }
     @Published var isSearching: Bool = false
-    @Published var selectedFileForPermissions: FileSystemItem?
-
     var directory: URL
     private let fileManager = FileManager.default
     private var rootSearchCancellable: AnyCancellable?
@@ -51,24 +43,13 @@ class FileManagerViewModel: ObservableObject {
         formatter.countStyle = .file
         return formatter.string(fromByteCount: Int64(size))
     }
-    
-    func addFile(at url: URL) {
-        let destinationURL = directory.appendingPathComponent(url.lastPathComponent)
-        do {
-            try FileManager.default.copyItem(at: url, to: destinationURL)
-            loadFiles()
-        } catch {
-            print("Failed to add file: \(error.localizedDescription)")
-        }
-    }
 
     func loadFiles() {
         isSearching = true
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let directoryContents = try self.fileManager.contentsOfDirectory(at: self.directory, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
-                let totalContents = directoryContents.count
-                for (index, url) in directoryContents.enumerated() {
+                for url in directoryContents {
                     let resourceValues = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
                     let isDirectory = resourceValues?.isDirectory ?? false
                     let isSymlink = resourceValues?.isSymbolicLink ?? false
@@ -78,7 +59,6 @@ class FileManagerViewModel: ObservableObject {
                     let fileSystemItem = FileSystemItem(name: url.lastPathComponent, isDirectory: isDirectory, url: url, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
                     DispatchQueue.main.async {
                         self.items.append(fileSystemItem)
-                        self.progress = Double(index + 1) / Double(totalContents)
                     }
                 }
                 DispatchQueue.main.async {
@@ -95,40 +75,19 @@ class FileManagerViewModel: ObservableObject {
         }
     }
 
-    private func recursiveFileSearch(at url: URL, result: FileSearchResults) {
-        do {
-            let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
-            let totalContents = contents.count
-            for (index, item) in contents.enumerated() {
-                let resourceValues = try? item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
-                let isDirectory = resourceValues?.isDirectory ?? false
-                let isSymlink = resourceValues?.isSymbolicLink ?? false
-                let fileSize = resourceValues?.fileSize ?? 0
-                let creationDate = resourceValues?.creationDate ?? Date()
-                let modificationDate = resourceValues?.contentModificationDate ?? Date()
-                let fileSystemItem = FileSystemItem(name: item.lastPathComponent, isDirectory: isDirectory, url: item, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
-                DispatchQueue.main.async {
-                    result.items.append(fileSystemItem)
-                    self.progress = Double(index + 1) / Double(totalContents)
-                }
-                if isDirectory {
-                    recursiveFileSearch(at: item, result: result)
-                }
-            }
-        } catch {
-            print("Failed to search files: \(error.localizedDescription)")
-        }
+    func showFilePermissions(for item: FileSystemItem) {
+        selectedFile = item
     }
 
     func getFilePermissions(at url: URL) -> [String] {
         var permissions: [String] = []
         do {
-            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            let attributes = try fileManager.attributesOfItem(atPath: url.path)
             if let posixPermissions = attributes[.posixPermissions] as? NSNumber {
-                let posixInt = posixPermissions.intValue
-                if posixInt & S_IRUSR != 0 { permissions.append("Read") }
-                if posixInt & S_IWUSR != 0 { permissions.append("Write") }
-                if posixInt & S_IXUSR != 0 { permissions.append("Execute") }
+                let posixInt = posixPermissions.uint16Value
+                if posixInt & UInt16(S_IRUSR) != 0 { permissions.append("Read") }
+                if posixInt & UInt16(S_IWUSR) != 0 { permissions.append("Write") }
+                if posixInt & UInt16(S_IXUSR) != 0 { permissions.append("Execute") }
             }
         } catch {
             print("Failed to get file permissions: \(error.localizedDescription)")
@@ -136,37 +95,47 @@ class FileManagerViewModel: ObservableObject {
         return permissions
     }
 
-    func toggleFilePermission(at url: URL, permission: String) {
+    func isPermissionGranted(for url: URL, permission: FilePermission) -> Bool {
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            if let posixPermissions = attributes[.posixPermissions] as? NSNumber {
+                let posixInt = posixPermissions.uint16Value
+                switch permission {
+                case .read:
+                    return (posixInt & UInt16(S_IRUSR)) != 0
+                case .write:
+                    return (posixInt & UInt16(S_IWUSR)) != 0
+                case .execute:
+                    return (posixInt & UInt16(S_IXUSR)) != 0
+                }
+            }
+        } catch {
+            print("Failed to retrieve file attributes: \(error.localizedDescription)")
+        }
+        return false
+    }
+
+    func toggleFilePermission(at url: URL, permission: FilePermission) {
         do {
             var attributes = try FileManager.default.attributesOfItem(atPath: url.path)
             if let posixPermissions = attributes[.posixPermissions] as? NSNumber {
-                var posixInt = posixPermissions.intValue
+                var posixInt = posixPermissions.uint16Value
                 switch permission {
-                case "Read":
-                    posixInt ^= S_IRUSR
-                case "Write":
-                    posixInt ^= S_IWUSR
-                case "Execute":
-                    posixInt ^= S_IXUSR
-                default:
-                    break
+                case .read:
+                    posixInt ^= UInt16(S_IRUSR)
+                case .write:
+                    posixInt ^= UInt16(S_IWUSR)
+                case .execute:
+                    posixInt ^= UInt16(S_IXUSR)
                 }
-                attributes[.posixPermissions] = NSNumber(value: posixInt)
-                try FileManager.default.setAttributes(attributes, ofItemAtPath: url.path)
+                let newPermissions = NSNumber(value: posixInt)
+                try FileManager.default.setAttributes([.posixPermissions: newPermissions], ofItemAtPath: url.path)
             }
         } catch {
             print("Failed to toggle file permission: \(error.localizedDescription)")
         }
     }
-
-    func performSearch() {
-        if searchScope == .root {
-            loadRootFiles()
-        } else {
-            filterItems()
-        }
-    }
-
+    
     func loadRootFiles() {
         isSearching = true
         rootSearchCancellable?.cancel()
@@ -181,6 +150,29 @@ class FileManagerViewModel: ObservableObject {
 
         DispatchQueue.global(qos: .userInitiated).async {
             self.recursiveFileSearch(at: URL(fileURLWithPath: "/"), result: searchResults)
+        }
+    }
+
+    private func recursiveFileSearch(at url: URL, result: FileSearchResults) {
+        do {
+            let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
+            for item in contents {
+                let resourceValues = try? item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
+                let isDirectory = resourceValues?.isDirectory ?? false
+                let isSymlink = resourceValues?.isSymbolicLink ?? false
+                let fileSize = resourceValues?.fileSize ?? 0
+                let creationDate = resourceValues?.creationDate ?? Date()
+                let modificationDate = resourceValues?.contentModificationDate ?? Date()
+                let fileSystemItem = FileSystemItem(name: item.lastPathComponent, isDirectory: isDirectory, url: item, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
+                DispatchQueue.main.async {
+                    result.items.append(fileSystemItem)
+                }
+                if isDirectory {
+                    recursiveFileSearch(at: item, result: result)
+                }
+            }
+        } catch {
+            print("Failed to search files: \(error.localizedDescription)")
         }
     }
 
@@ -232,51 +224,52 @@ class FileManagerViewModel: ObservableObject {
     func deleteSelectedFiles() {
         for id in selectedItems {
             if let item = items.first(where: { $0.id == id }) {
-                deleteFile(at: item.url)
-            }
-        }
-        selectedItems.removeAll()
+               deleteFile(at: item.url)
+}
+}
+selectedItems.removeAll()
+loadFiles()
+}
+
+func createFile(named fileName: String) {
+    let fileURL = directory.appendingPathComponent(fileName)
+    let content = "This is a new file."
+    do {
+        try content.write(to: fileURL, atomically: true, encoding: .utf8)
         loadFiles()
+    } catch {
+        print("Failed to create file: \(error.localizedDescription)")
     }
+}
 
-    func createFile(named fileName: String) {
-        let fileURL = directory.appendingPathComponent(fileName)
-        let content = "This is a new file."
-        do {
-            try content.write(to: fileURL, atomically: true, encoding: .utf8)
-            loadFiles()
-        } catch {
-            print("Failed to create file: \(error.localizedDescription)")
-        }
+func createFolder(named folderName: String) {
+    let folderURL = directory.appendingPathComponent(folderName)
+    do {
+        try fileManager.createDirectory(at: folderURL, withIntermediateDirectories: true, attributes: nil)
+        loadFiles()
+    } catch {
+        print("Failed to create folder: \(error.localizedDescription)")
     }
+}
 
-    func createFolder(named folderName: String) {
-        let folderURL = directory.appendingPathComponent(folderName)
-        do {
-            try fileManager.createDirectory(at: folderURL, withIntermediateDirectories: true, attributes: nil)
-            loadFiles()
-        } catch {
-            print("Failed to create folder: \(error.localizedDescription)")
-        }
+func renameFile(at url: URL, to newName: String) {
+    let newURL = url.deletingLastPathComponent().appendingPathComponent(newName)
+    do {
+        try fileManager.moveItem(at: url, to: newURL)
+        loadFiles()
+    } catch {
+        print("Failed to rename file: \(error.localizedDescription)")
     }
+}
 
-    func renameFile(at url: URL, to newName: String) {
-        let newURL = url.deletingLastPathComponent().appendingPathComponent(newName)
-        do {
-            try fileManager.moveItem(at: url, to: newURL)
-            loadFiles()
-        } catch {
-            print("Failed to rename file: \(error.localizedDescription)")
-        }
+func copyFile(at url: URL, to newName: String) {
+    let newURL = url.deletingLastPathComponent().appendingPathComponent(newName)
+    do {
+        try fileManager.copyItem(at: url, to: newURL)
+        loadFiles()
+    } catch {
+        print("Failed to copy file: \(error.localizedDescription)")
     }
+}
 
-    func copyFile(at url: URL, to newName: String) {
-        let newURL = url.deletingLastPathComponent().appendingPathComponent(newName)
-        do {
-            try fileManager.copyItem(at: url, to: newURL)
-            loadFiles()
-        } catch {
-            print("Failed to copy file: \(error.localizedDescription)")
-        }
-    }
 }
