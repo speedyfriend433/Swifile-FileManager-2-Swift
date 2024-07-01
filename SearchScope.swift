@@ -6,16 +6,14 @@
  
 import Foundation
 
-enum SearchScope {
-    case current
-    case root
+enum SearchScope: String, CaseIterable {
+    case current = "Current"
+    case root = "Root"
 
     var title: String {
         switch self {
-        case .current:
-            return "Current"
-        case .root:
-            return "Root"
+        case .current: return "Current Directory"
+        case .root: return "Root Directory"
         }
     }
 }

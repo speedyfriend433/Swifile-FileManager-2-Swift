@@ -6,33 +6,19 @@
 
 import SwiftUI
 
-enum FilePermission: String, CaseIterable {
-    case read
-    case write
-    case execute
-}
-
 struct FilePermissionView: View {
     @ObservedObject var viewModel: FileManagerViewModel
     var fileURL: URL
 
     var body: some View {
-        VStack {
-            Text("File Permissions for \(fileURL.lastPathComponent)")
-                .font(.headline)
-            ForEach(FilePermission.allCases, id: \.self) { permission in
-                HStack {
-                    Text(permission.rawValue.capitalized)
-                    Spacer()
-                    Button(action: {
+        List(FilePermission.allCases, id: \.self) { permission in
+            HStack {
+                Image(systemName: viewModel.isPermissionGranted(for: fileURL, permission: permission) ? "checkmark.square" : "square")
+                    .onTapGesture {
                         viewModel.toggleFilePermission(at: fileURL, permission: permission)
-                    }) {
-                        Image(systemName: viewModel.isPermissionGranted(for: fileURL, permission: permission) ? "checkmark.square" : "square")
                     }
-                }
-                .padding()
+                Text(permission.rawValue)
             }
         }
-        .padding()
     }
 }

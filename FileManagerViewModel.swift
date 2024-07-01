@@ -49,7 +49,8 @@ class FileManagerViewModel: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let directoryContents = try self.fileManager.contentsOfDirectory(at: self.directory, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
-                for url in directoryContents {
+                let totalContents = directoryContents.count
+                for (index, url) in directoryContents.enumerated() {
                     let resourceValues = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
                     let isDirectory = resourceValues?.isDirectory ?? false
                     let isSymlink = resourceValues?.isSymbolicLink ?? false
@@ -80,62 +81,86 @@ class FileManagerViewModel: ObservableObject {
     }
 
     func getFilePermissions(at url: URL) -> [String] {
-        var permissions: [String] = []
-        do {
-            let attributes = try fileManager.attributesOfItem(atPath: url.path)
-            if let posixPermissions = attributes[.posixPermissions] as? NSNumber {
-                let posixInt = posixPermissions.uint16Value
-                if posixInt & UInt16(S_IRUSR) != 0 { permissions.append("Read") }
-                if posixInt & UInt16(S_IWUSR) != 0 { permissions.append("Write") }
-                if posixInt & UInt16(S_IXUSR) != 0 { permissions.append("Execute") }
-            }
-        } catch {
-            print("Failed to get file permissions: \(error.localizedDescription)")
+    var permissions: [String] = []
+    do {
+        let attributes = try fileManager.attributesOfItem(atPath: url.path)
+        if let posixPermissions = attributes[.posixPermissions] as? NSNumber {
+            let posixInt = posixPermissions.uint16Value
+            if posixInt & UInt16(S_IRUSR) != 0 { permissions.append("Read") }
+            if posixInt & UInt16(S_IWUSR) != 0 { permissions.append("Write") }
+            if posixInt & UInt16(S_IXUSR) != 0 { permissions.append("Execute") }
         }
-        return permissions
+    } catch {
+        print("Failed to get file permissions: \(error.localizedDescription)")
     }
+    return permissions
+}
 
     func isPermissionGranted(for url: URL, permission: FilePermission) -> Bool {
-        do {
-            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-            if let posixPermissions = attributes[.posixPermissions] as? NSNumber {
-                let posixInt = posixPermissions.uint16Value
-                switch permission {
-                case .read:
-                    return (posixInt & UInt16(S_IRUSR)) != 0
-                case .write:
-                    return (posixInt & UInt16(S_IWUSR)) != 0
-                case .execute:
-                    return (posixInt & UInt16(S_IXUSR)) != 0
-                }
+    do {
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        if let posixPermissions = attributes[.posixPermissions] as? NSNumber {
+            let posixInt = posixPermissions.uint16Value
+            switch permission {
+            case .userRead:
+                return (posixInt & UInt16(S_IRUSR)) != 0
+            case .userWrite:
+                return (posixInt & UInt16(S_IWUSR)) != 0
+            case .userExecute:
+                return (posixInt & UInt16(S_IXUSR)) != 0
+            case .groupRead:
+                return (posixInt & UInt16(S_IRGRP)) != 0
+            case .groupWrite:
+                return (posixInt & UInt16(S_IWGRP)) != 0
+            case .groupExecute:
+                return (posixInt & UInt16(S_IXGRP)) != 0
+            case .othersRead:
+                return (posixInt & UInt16(S_IROTH)) != 0
+            case .othersWrite:
+                return (posixInt & UInt16(S_IWOTH)) != 0
+            case .othersExecute:
+                return (posixInt & UInt16(S_IXOTH)) != 0
             }
-        } catch {
-            print("Failed to retrieve file attributes: \(error.localizedDescription)")
         }
-        return false
+    } catch {
+        print("Failed to retrieve file attributes: \(error.localizedDescription)")
     }
+    return false
+}
 
     func toggleFilePermission(at url: URL, permission: FilePermission) {
-        do {
-            var attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-            if let posixPermissions = attributes[.posixPermissions] as? NSNumber {
-                var posixInt = posixPermissions.uint16Value
-                switch permission {
-                case .read:
-                    posixInt ^= UInt16(S_IRUSR)
-                case .write:
-                    posixInt ^= UInt16(S_IWUSR)
-                case .execute:
-                    posixInt ^= UInt16(S_IXUSR)
-                }
-                let newPermissions = NSNumber(value: posixInt)
-                try FileManager.default.setAttributes([.posixPermissions: newPermissions], ofItemAtPath: url.path)
+    do {
+        var attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        if let posixPermissions = attributes[.posixPermissions] as? NSNumber {
+            var posixInt = posixPermissions.uint16Value
+            switch permission {
+            case .userRead:
+                posixInt ^= UInt16(S_IRUSR)
+            case .userWrite:
+                posixInt ^= UInt16(S_IWUSR)
+            case .userExecute:
+                posixInt ^= UInt16(S_IXUSR)
+            case .groupRead:
+                posixInt ^= UInt16(S_IRGRP)
+            case .groupWrite:
+                posixInt ^= UInt16(S_IWGRP)
+            case .groupExecute:
+                posixInt ^= UInt16(S_IXGRP)
+            case .othersRead:
+                posixInt ^= UInt16(S_IROTH)
+            case .othersWrite:
+                posixInt ^= UInt16(S_IWOTH)
+            case .othersExecute:
+                posixInt ^= UInt16(S_IXOTH)
             }
-        } catch {
-            print("Failed to toggle file permission: \(error.localizedDescription)")
+            let newPermissions = NSNumber(value: posixInt)
+            try FileManager.default.setAttributes([.posixPermissions: newPermissions], ofItemAtPath: url.path)
         }
+    } catch {
+        print("Failed to toggle file permission: \(error.localizedDescription)")
     }
-    
+}
+
     func loadRootFiles() {
         isSearching = true
         rootSearchCancellable?.cancel()
@@ -224,52 +249,63 @@ class FileManagerViewModel: ObservableObject {
     func deleteSelectedFiles() {
         for id in selectedItems {
             if let item = items.first(where: { $0.id == id }) {
-               deleteFile(at: item.url)
-}
-}
-selectedItems.removeAll()
-loadFiles()
-}
-
-func createFile(named fileName: String) {
-    let fileURL = directory.appendingPathComponent(fileName)
-    let content = "This is a new file."
-    do {
-        try content.write(to: fileURL, atomically: true, encoding: .utf8)
+                deleteFile(at: item.url)
+            }
+        }
+        selectedItems.removeAll()
         loadFiles()
-    } catch {
-        print("Failed to create file: \(error.localizedDescription)")
+    }
+
+    func createFile(named fileName: String) {
+        let fileURL = directory.appendingPathComponent(fileName)
+        let content = "This is a new file."
+        do {
+            try content.write(to: fileURL, atomically: true, encoding: .utf8)
+            loadFiles()
+        } catch {
+            print("Failed to create file: \(error.localizedDescription)")
+        }
+    }
+
+    func createFolder(named folderName: String) {
+        let folderURL = directory.appendingPathComponent(folderName)
+        do {
+            try fileManager.createDirectory(at: folderURL, withIntermediateDirectories: true, attributes: nil)
+            loadFiles()
+        } catch {
+            print("Failed to create folder: \(error.localizedDescription)")
+        }
+    }
+
+    func renameFile(at url: URL, to newName: String) {
+        let newURL = url.deletingLastPathComponent().appendingPathComponent(newName)
+        do {
+            try fileManager.moveItem(at: url, to: newURL)
+            loadFiles()
+        } catch {
+            print("Failed to rename file: \(error.localizedDescription)")
+        }
+    }
+
+    func copyFile(at url: URL, to newName: String) {
+        let newURL = url.deletingLastPathComponent().appendingPathComponent(newName)
+        do {
+            try fileManager.copyItem(at: url, to: newURL)
+            loadFiles()
+        } catch {
+            print("Failed to copy file: \(error.localizedDescription)")
+        }
     }
 }
 
-func createFolder(named folderName: String) {
-    let folderURL = directory.appendingPathComponent(folderName)
-    do {
-        try fileManager.createDirectory(at: folderURL, withIntermediateDirectories: true, attributes: nil)
-        loadFiles()
-    } catch {
-        print("Failed to create folder: \(error.localizedDescription)")
-    }
-}
-
-func renameFile(at url: URL, to newName: String) {
-    let newURL = url.deletingLastPathComponent().appendingPathComponent(newName)
-    do {
-        try fileManager.moveItem(at: url, to: newURL)
-        loadFiles()
-    } catch {
-        print("Failed to rename file: \(error.localizedDescription)")
-    }
-}
-
-func copyFile(at url: URL, to newName: String) {
-    let newURL = url.deletingLastPathComponent().appendingPathComponent(newName)
-    do {
-        try fileManager.copyItem(at: url, to: newURL)
-        loadFiles()
-    } catch {
-        print("Failed to copy file: \(error.localizedDescription)")
-    }
-}
-
+enum FilePermission: String, CaseIterable {
+    case userRead = "User Read"
+    case userWrite = "User Write"
+    case userExecute = "User Execute"
+    case groupRead = "Group Read"
+    case groupWrite = "Group Write"
+    case groupExecute = "Group Execute"
+    case othersRead = "Others Read"
+    case othersWrite = "Others Write"
+    case othersExecute = "Others Execute"
 }
