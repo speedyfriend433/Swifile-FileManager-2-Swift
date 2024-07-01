@@ -20,15 +20,13 @@ class FileManagerViewModel: ObservableObject {
     }
     @Published var searchQuery: String = "" {
         didSet {
-            if searchScope == .current {
-                filterItems()
-            }
+            filterItems()
         }
     }
     @Published var searchScope: SearchScope = .current {
         didSet {
             if searchScope == .root {
-                clearRootItems()
+                loadRootFiles()
             } else {
                 cancelRootSearch()
                 filterItems()
@@ -36,6 +34,8 @@ class FileManagerViewModel: ObservableObject {
         }
     }
     @Published var isSearching: Bool = false
+    @Published var selectedFileForPermissions: FileSystemItem?
+
     var directory: URL
     private let fileManager = FileManager.default
     private var rootSearchCancellable: AnyCancellable?
@@ -96,53 +96,85 @@ class FileManagerViewModel: ObservableObject {
     }
 
     private func recursiveFileSearch(at url: URL, result: FileSearchResults) {
-    do {
-        let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
-        for item in contents {
-            let resourceValues = try? item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
-            let isDirectory = resourceValues?.isDirectory ?? false
-            let isSymlink = resourceValues?.isSymbolicLink ?? false
-            let fileSize = resourceValues?.fileSize ?? 0
-            let creationDate = resourceValues?.creationDate ?? Date()
-            let modificationDate = resourceValues?.contentModificationDate ?? Date()
-            let fileSystemItem = FileSystemItem(name: item.lastPathComponent, isDirectory: isDirectory, url: item, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
-            if shouldIncludeItem(fileSystemItem) {
+        do {
+            let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
+            let totalContents = contents.count
+            for (index, item) in contents.enumerated() {
+                let resourceValues = try? item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
+                let isDirectory = resourceValues?.isDirectory ?? false
+                let isSymlink = resourceValues?.isSymbolicLink ?? false
+                let fileSize = resourceValues?.fileSize ?? 0
+                let creationDate = resourceValues?.creationDate ?? Date()
+                let modificationDate = resourceValues?.contentModificationDate ?? Date()
+                let fileSystemItem = FileSystemItem(name: item.lastPathComponent, isDirectory: isDirectory, url: item, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
                 DispatchQueue.main.async {
                     result.items.append(fileSystemItem)
+                    self.progress = Double(index + 1) / Double(totalContents)
+                }
+                if isDirectory {
+                    recursiveFileSearch(at: item, result: result)
                 }
             }
-            if isDirectory {
-                recursiveFileSearch(at: item, result: result)
-            }
+        } catch {
+            print("Failed to search files: \(error.localizedDescription)")
         }
-    } catch {
-        print("Failed to search files: \(error.localizedDescription)")
     }
-}
 
-    private func shouldIncludeItem(_ item: FileSystemItem) -> Bool {
-        if searchQuery.isEmpty {
-            return true
+    func getFilePermissions(at url: URL) -> [String] {
+        var permissions: [String] = []
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            if let posixPermissions = attributes[.posixPermissions] as? NSNumber {
+                let posixInt = posixPermissions.intValue
+                if posixInt & S_IRUSR != 0 { permissions.append("Read") }
+                if posixInt & S_IWUSR != 0 { permissions.append("Write") }
+                if posixInt & S_IXUSR != 0 { permissions.append("Execute") }
+            }
+        } catch {
+            print("Failed to get file permissions: \(error.localizedDescription)")
         }
-        let query = searchQuery.lowercased()
-        if item.name.lowercased().contains(query) {
-            return true
+        return permissions
+    }
+
+    func toggleFilePermission(at url: URL, permission: String) {
+        do {
+            var attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            if let posixPermissions = attributes[.posixPermissions] as? NSNumber {
+                var posixInt = posixPermissions.intValue
+                switch permission {
+                case "Read":
+                    posixInt ^= S_IRUSR
+                case "Write":
+                    posixInt ^= S_IWUSR
+                case "Execute":
+                    posixInt ^= S_IXUSR
+                default:
+                    break
+                }
+                attributes[.posixPermissions] = NSNumber(value: posixInt)
+                try FileManager.default.setAttributes(attributes, ofItemAtPath: url.path)
+            }
+        } catch {
+            print("Failed to toggle file permission: \(error.localizedDescription)")
         }
-        if let content = try? String(contentsOf: item.url).lowercased(), content.contains(query) {
-            return true
-        }
-        return false
     }
 
     func performSearch() {
-        guard !searchQuery.isEmpty else { return }
+        if searchScope == .root {
+            loadRootFiles()
+        } else {
+            filterItems()
+        }
+    }
+
+    func loadRootFiles() {
         isSearching = true
         rootSearchCancellable?.cancel()
         let searchResults = FileSearchResults()
         rootSearchCancellable = searchResults.$items
             .receive(on: DispatchQueue.main)
             .sink { [weak self] items in
-                self?.rootItems = items.sorted { $0.url.path < $1.url.path }
+                self?.rootItems = items
                 self?.isSearching = false
                 self?.filterItems()
             }
@@ -155,11 +187,6 @@ class FileManagerViewModel: ObservableObject {
     private func cancelRootSearch() {
         rootSearchCancellable?.cancel()
         isSearching = false
-    }
-
-    func clearRootItems() {
-        rootItems.removeAll()
-        filteredItems.removeAll()
     }
 
     func sortItems() {
@@ -213,23 +240,15 @@ class FileManagerViewModel: ObservableObject {
     }
 
     func createFile(named fileName: String) {
-    let fileURL = directory.appendingPathComponent(fileName)
-    let content = "This is a new file."
-    do {
-        try content.write(to: fileURL, atomically: true, encoding: .utf8)
-        // Instead of reloading the files which might cause duplicates, just add the new file to the items array
-        let resourceValues = try? fileURL.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
-        let fileSize = resourceValues?.fileSize ?? 0
-        let creationDate = resourceValues?.creationDate ?? Date()
-        let modificationDate = resourceValues?.contentModificationDate ?? Date()
-        let newItem = FileSystemItem(name: fileURL.lastPathComponent, isDirectory: false, url: fileURL, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: false)
-        items.append(newItem)
-        sortItems()
-        filterItems()
-    } catch {
-        print("Failed to create file: \(error.localizedDescription)")
+        let fileURL = directory.appendingPathComponent(fileName)
+        let content = "This is a new file."
+        do {
+            try content.write(to: fileURL, atomically: true, encoding: .utf8)
+            loadFiles()
+        } catch {
+            print("Failed to create file: \(error.localizedDescription)")
+        }
     }
-}
 
     func createFolder(named folderName: String) {
         let folderURL = directory.appendingPathComponent(folderName)
@@ -257,6 +276,7 @@ class FileManagerViewModel: ObservableObject {
             try fileManager.copyItem(at: url, to: newURL)
             loadFiles()
         } catch {
-            print("Failed to copy file: \(error.localizedDescription)")    }
-}
+            print("Failed to copy file: \(error.localizedDescription)")
+        }
+    }
 }

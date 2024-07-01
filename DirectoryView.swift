@@ -3,11 +3,12 @@
 //
 // Created by Speedyfriend67 on 27.06.24
 //
-// Ensure you have the necessary imports
+// 
+
 import SwiftUI
 
 struct DirectoryView: View {
-    @StateObject private var viewModel: FileManagerViewModel
+    @ObservedObject private var viewModel: FileManagerViewModel
     @State private var showingActionSheet = false
     @State private var showingAddItemSheet = false
     @State private var showingRenameCopySheet = false
@@ -22,10 +23,10 @@ struct DirectoryView: View {
     @State private var showingSortOptions = false
     @State private var showingSearchBar = false
     @State private var isEditing = false
-    @State private var isSearchActive = false
+    @State private var selectedFileForPermissions: FileSystemItem?
 
     init(directory: URL) {
-        _viewModel = StateObject(wrappedValue: FileManagerViewModel(directory: directory))
+        _viewModel = ObservedObject(wrappedValue: FileManagerViewModel(directory: directory))
     }
 
     var body: some View {
@@ -41,10 +42,7 @@ struct DirectoryView: View {
 
             if showingSearchBar {
                 SearchBar(text: $viewModel.searchQuery, onSearchButtonClicked: {
-                    if viewModel.searchScope == .root {
-                        isSearchActive = true
-                        viewModel.performSearch()
-                    }
+                    viewModel.performSearch()
                 })
                 .padding([.leading, .trailing])
             }
@@ -55,25 +53,31 @@ struct DirectoryView: View {
             } else {
                 List(selection: $viewModel.selectedItems) {
                     ForEach(viewModel.filteredItems) { item in
-                        NavigationLink(destination: destinationView(for: item)) {
-                            HStack {
-                                if isEditing {
-                                    Image(systemName: viewModel.selectedItems.contains(item.id) ? "checkmark.circle.fill" : "circle")
-                                        .onTapGesture {
-                                            if viewModel.selectedItems.contains(item.id) {
-                                                viewModel.selectedItems.remove(item.id)
-                                            } else {
-                                                viewModel.selectedItems.insert(item.id)
-                                            }
+                        HStack {
+                            NavigationLink(destination: destinationView(for: item)) {
+                                EmptyView()
+                            }.frame(width: 0).hidden()
+                            if isEditing {
+                                Image(systemName: viewModel.selectedItems.contains(item.id) ? "checkmark.circle.fill" : "circle")
+                                    .onTapGesture {
+                                        if viewModel.selectedItems.contains(item.id) {
+                                            viewModel.selectedItems.remove(item.id)
+                                        } else {
+                                            viewModel.selectedItems.insert(item.id)
                                         }
-                                }
-                                Image(systemName: item.isDirectory ? "folder" : (item.isSymlink ? "link" : "doc"))
-                                Text(item.name)
-                                Spacer()
-                                if !item.isDirectory {
-                                    Text(viewModel.formattedFileSize(item.size))
-                                        .foregroundColor(.gray)
-                                }
+                                    }
+                            }
+                            Image(systemName: item.isDirectory ? "folder" : (item.isSymlink ? "link" : "doc"))
+                            Text(item.name)
+                            Spacer()
+                            if !item.isDirectory {
+                                Text(viewModel.formattedFileSize(item.size))
+                                    .foregroundColor(.gray)
+                            }
+                            Button(action: {
+                                selectedFileForPermissions = item
+                            }) {
+                                Image(systemName: "info.circle")
                             }
                         }
                         .contextMenu {
@@ -126,8 +130,7 @@ struct DirectoryView: View {
                 withAnimation {
                     showingSearchBar.toggle()
                     if showingSearchBar && viewModel.searchScope == .root {
-                        isSearchActive = false
-                        viewModel.clearRootItems()
+                        viewModel.loadRootFiles()
                     }
                 }
             }) {
@@ -162,21 +165,21 @@ struct DirectoryView: View {
             ])
         }
         .sheet(isPresented: $showingAddItemSheet) {
-    AddItemView(
-        isPresented: $showingAddItemSheet,
-        isDirectory: isAddingDirectory,
-        existingNames: viewModel.items.map { $0.name }
-    ) { name in
-        if isAddingDirectory {
-            viewModel.createFolder(named: name)
-            statusMessage = "Created folder: \(name)"
-        } else {
-            viewModel.createFile(named: name)
-            statusMessage = "Created file: \(name)"
+            AddItemView(
+                isPresented: $showingAddItemSheet,
+                isDirectory: isAddingDirectory,
+                existingNames: viewModel.items.map { $0.name }
+            ) { name in
+                if isAddingDirectory {
+                    viewModel.createFolder(named: name)
+                    statusMessage = "Created folder: \(name)"
+                } else {
+                    viewModel.createFile(named: name)
+                    statusMessage = "Created file: \(name)"
+                }
+                showingStatusAlert = true
+            }
         }
-        showingStatusAlert = true
-    }
-}
         .sheet(isPresented: $showingRenameCopySheet) {
             RenameCopyView(
                 newName: $newName,
@@ -219,6 +222,9 @@ struct DirectoryView: View {
                 secondaryButton: .cancel()
             )
         }
+        .sheet(item: $selectedFileForPermissions) { selectedFile in
+            FilePermissionView(viewModel: viewModel, fileURL: selectedFile.url)
+        }
 
         if isEditing && !viewModel.selectedItems.isEmpty {
             Button(action: {
@@ -234,32 +240,31 @@ struct DirectoryView: View {
         }
     }
 
-    @ViewBuilder
     private func destinationView(for item: FileSystemItem) -> some View {
         if item.isSymlink {
             if let resolvedURL = resolveSymlink(at: item.url) {
-                DirectoryView(directory: resolvedURL)
+                return AnyView(DirectoryView(directory: resolvedURL))
             } else {
-                Text("Invalid symlink: \(item.name)")
+                return AnyView(Text("Invalid symlink: \(item.name)"))
             }
         } else if item.isDirectory {
-            DirectoryView(directory: item.url)
-        } else if item.name.hasSuffix(".txt") || item.name.hasSuffix(".zshrc") {
-            TextFileView(fileURL: item.url)
+            return AnyView(DirectoryView(directory: item.url))
+        } else if item.name.hasSuffix(".txt") {
+            return AnyView(TextFileView(fileURL: item.url))
         } else if item.name.hasSuffix(".png") || item.name.hasSuffix(".jpg") || item.name.hasSuffix(".jpeg") || item.name.hasSuffix(".car") || item.name.hasSuffix(".heic") {
-            ImageFileView(fileURL: item.url)
+            return AnyView(ImageFileView(fileURL: item.url))
         } else if item.name.hasSuffix(".plist") || item.name.hasSuffix(".xml") ||
-                    item.name.hasSuffix(".entitlements") {
-            PlistEditorView(fileURL: item.url)
+        item.name.hasSuffix(".entitlements") {
+            return AnyView(PlistEditorView(fileURL: item.url))
         } else if item.name.hasSuffix(".bin") || item.name.hasSuffix(".dylib") || item.name.hasSuffix(".geode") {
-            HexEditorView(fileURL: item.url)
+            return AnyView(HexEditorView(fileURL: item.url))
         } else if item.name.hasSuffix(".ipa") || item.name.hasSuffix(".deb") ||
-                    item.name.hasSuffix(".jp2") ||
-                    item.name.hasSuffix(".xz") ||
-                    item.name.hasSuffix(".zip") {
-            FileDetailView(fileURL: item.url)
+        item.name.hasSuffix(".jp2") ||
+        item.name.hasSuffix(".xz") ||
+        item.name.hasSuffix(".zip"){
+            return AnyView(FileDetailView(fileURL: item.url))
         } else {
-            Text("File: \(item.name)")
+            return AnyView(Text("File: \(item.name)"))
         }
     }
 
@@ -267,9 +272,9 @@ struct DirectoryView: View {
         do {
             let destination = try FileManager.default.destinationOfSymbolicLink(atPath: url.path)
             return URL(fileURLWithPath: destination)
-       } catch {
-print("Failed to resolve symlink: (error.localizedDescription)")
-return nil
-}
-}
+        } catch {
+            print("Failed to resolve symlink: \(error.localizedDescription)")
+            return nil
+        }
+    }
 }
