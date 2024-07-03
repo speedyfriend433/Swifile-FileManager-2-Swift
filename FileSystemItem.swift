@@ -6,31 +6,30 @@
  
 import Foundation
 
-import Foundation
-
 struct FileSystemItem: Identifiable {
-    let id = UUID()
-    let name: String
-    let isDirectory: Bool
-    let url: URL
-    let size: Int
-    let creationDate: Date
-    let modificationDate: Date
-    let isSymlink: Bool
+    var id = UUID()
+    var name: String
+    var isDirectory: Bool
+    var url: URL
+    var size: Int
+    var creationDate: Date
+    var modificationDate: Date
+    var isSymlink: Bool
     
+    // File type checks
     var isTextFile: Bool {
-        url.pathExtension.lowercased() == "txt"
+        return url.pathExtension.lowercased() == "txt"
     }
     
     var isImageFile: Bool {
-        ["jpg", "jpeg", "png", "gif"].contains(url.pathExtension.lowercased())
+        return ["png", "jpg", "jpeg", "gif"].contains(url.pathExtension.lowercased())
     }
     
     var isPlistFile: Bool {
-        url.pathExtension.lowercased() == "plist"
+        return url.pathExtension.lowercased() == "plist"
     }
     
     var isHexFile: Bool {
-        url.pathExtension.lowercased() == "hex"
+        return url.pathExtension.lowercased() == "dylib"
     }
 }

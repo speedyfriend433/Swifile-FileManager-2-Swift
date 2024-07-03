@@ -207,37 +207,49 @@ struct DirectoryView: View {
             )
         }
         .sheet(item: $viewModel.selectedFile) { selectedFile in
-            FilePermissionView(viewModel: viewModel, fileURL: selectedFile.url)
-        }
+    FilePermissionView(viewModel: viewModel, fileURL: selectedFile.url)
+}
     }
 
     private func destinationView(for item: FileSystemItem) -> some View {
-        if item.isDirectory {
+    if item.isDirectory {
+        if item.isSymlink {
             if let resolvedURL = resolveSymlink(at: item.url) {
                 return AnyView(DirectoryView(directory: resolvedURL))
             } else {
                 return AnyView(Text("Invalid symlink: \(item.name)"))
             }
-        } else if item.isTextFile {
-            return AnyView(TextFileView(fileURL: item.url))
-        } else if item.isImageFile {
-            return AnyView(ImageFileView(fileURL: item.url))
-        } else if item.isPlistFile {
-            return AnyView(PlistEditorView(fileURL: item.url))
-        } else if item.isHexFile {
-            return AnyView(HexEditorView(fileURL: item.url))
         } else {
-            return AnyView(FileDetailView(fileURL: item.url))
+            return AnyView(DirectoryView(directory: item.url))
         }
+    } else if item.isTextFile {
+        return AnyView(TextFileView(fileURL: item.url))
+    } else if item.isImageFile {
+        return AnyView(ImageFileView(fileURL: item.url))
+    } else if item.isPlistFile {
+        return AnyView(PlistEditorView(fileURL: item.url))
+    } else if item.isHexFile {
+        return AnyView(HexEditorView(fileURL: item.url))
+    } else {
+        return AnyView(FileDetailView(fileURL: item.url))
     }
+}
 
     private func resolveSymlink(at url: URL) -> URL? {
-        do {
-            let destination = try FileManager.default.destinationOfSymbolicLink(atPath: url.path)
-            return URL(fileURLWithPath: destination)
-        } catch {
-            print("Failed to resolve symlink: \(error.localizedDescription)")
+    do {
+        let destination = try FileManager.default.destinationOfSymbolicLink(atPath: url.path)
+        let resolvedURL = URL(fileURLWithPath: destination)
+        
+        // Check if the resolved URL exists
+        if FileManager.default.fileExists(atPath: resolvedURL.path) {
+            return resolvedURL
+        } else {
+            print("Resolved symlink does not exist: \(resolvedURL.path)")
             return nil
         }
+    } catch {
+        print("Failed to resolve symlink: \(error.localizedDescription)")
+        return nil
     }
+}
 }
