@@ -93,8 +93,8 @@ Revived From Original Swifile
 ## To-Do List
 
 - file / folder functions fix on /var (restricted to /mobile yet)
-- info button fix
-- add files metadata view
+- info button fix ✅
+- add files metadata view ✅
 - support for more file extensions 
 - add music , video player
 - zip archive (will be implemented in Xcode after this update is completed)
