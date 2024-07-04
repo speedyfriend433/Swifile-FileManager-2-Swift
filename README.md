@@ -1,6 +1,6 @@
 # Swift File Manager - Swifile 2
 
-A comprehensive file management application built using SwiftUI. This application provides a user-friendly interface for navigating directories, managing files, and viewing file details with additional support for specific file types like text, images, plists, binaries, and application packages (`.ipa` and `.deb`).
+A comprehensive file management application fully written in Swift. This application provides a user-friendly interface for navigating directories, managing files, and viewing file details with additional support for specific file types like text, images, plists, binaries, and application packages (`.ipa` and `.deb`).
 
 Revived From Original Swifile
 
