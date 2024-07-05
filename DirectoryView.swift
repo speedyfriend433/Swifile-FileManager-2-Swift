@@ -4,7 +4,6 @@
 // Created by Speedyfriend67 on 27.06.24
 //
 // 
-
 import SwiftUI
 
 #if canImport(UIKit)

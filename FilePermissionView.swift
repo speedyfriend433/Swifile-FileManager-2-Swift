@@ -16,8 +16,10 @@ struct FilePermissionView: View {
         
         return List {
             Section(header: Text("File Metadata")) {
-                Text("Name: \(metadata.name)")
-                Text("Size: \(metadata.size)")
+                Text("Name: \(metadata["Name"] ?? "Unknown")")
+                Text("Size: \(metadata["Size"] ?? "Unknown")")
+                Text("Creation Date: \(metadata["Creation Date"] ?? "Unknown")")
+                Text("Modification Date: \(metadata["Modification Date"] ?? "Unknown")")
             }
 
             Section(header: Text("File Permissions")) {

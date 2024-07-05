@@ -61,6 +61,7 @@ class FileManagerViewModel: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let directoryContents = try self.fileManager.contentsOfDirectory(at: self.directory, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
+                var fileSystemItems: [FileSystemItem] = []
                 for url in directoryContents {
                     let resourceValues = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
                     let isDirectory = resourceValues?.isDirectory ?? false
@@ -69,11 +70,10 @@ class FileManagerViewModel: ObservableObject {
                     let creationDate = resourceValues?.creationDate ?? Date()
                     let modificationDate = resourceValues?.contentModificationDate ?? Date()
                     let fileSystemItem = FileSystemItem(name: url.lastPathComponent, isDirectory: isDirectory, url: url, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
-                    DispatchQueue.main.async {
-                        self.items.append(fileSystemItem)
-                    }
+                    fileSystemItems.append(fileSystemItem)
                 }
                 DispatchQueue.main.async {
+                    self.items = fileSystemItems
                     self.sortItems()
                     self.filterItems()
                     self.isSearching = false
@@ -91,23 +91,27 @@ class FileManagerViewModel: ObservableObject {
         selectedFile = item
     }
 
-    func getFileMetadata(at url: URL) -> (name: String, size: String) {
-        var size = "Unknown"
-        let name = url.lastPathComponent
-
-        do {
-            let attributes = try fileManager.attributesOfItem(atPath: url.path)
-            if let fileSize = attributes[.size] as? NSNumber {
-                size = ByteCountFormatter.string(fromByteCount: fileSize.int64Value, countStyle: .file)
-            }
-        } catch {
-            print("Failed to retrieve file attributes: \(error.localizedDescription)")
-        }
-
-        return (name, size)
+    func getFileMetadata(at url: URL) -> [String: String] {
+        var metadata: [String: String] = [:]
+        metadata["Name"] = url.lastPathComponent
+        metadata["Size"] = getFileSize(at: url)
+        metadata["Creation Date"] = getCreationDate(at: url)
+        metadata["Modification Date"] = getModificationDate(at: url)
+        return metadata
     }
 
-    
+    func getFileSize(at url: URL) -> String {
+        do {
+            let attributes = try fileManager.attributesOfItem(atPath: url.path)
+            if let size = attributes[.size] as? NSNumber {
+                return ByteCountFormatter.string(fromByteCount: size.int64Value, countStyle: .file)
+            }
+        } catch {
+            print("Failed to get file size: \(error.localizedDescription)")
+        }
+        return "Unknown"
+    }
+
     func getCreationDate(at url: URL) -> String {
         do {
             let attributes = try fileManager.attributesOfItem(atPath: url.path)
@@ -131,52 +135,6 @@ class FileManagerViewModel: ObservableObject {
         }
         return "Unknown"
     }
-
-    
-    //func getFileType(at url: URL) -> String {
-        //return (try? url.resourceValues(forKeys: [.contentTypeKey]).contentType?.localizedDescription) ?? //"Unknown"
-    //}
-
-    //func getMIMEType(at url: URL) -> String {
-        //guard let pathExtension = url.pathExtension as CFString?,
-              //let uti = UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, pathExtension, nil)?.takeRetainedValue(),
-              //let mimeType = UTTypeCopyPreferredTagWithClass(uti, kUTTagClassMIMEType)?.takeRetainedValue() else {
-            //return //"application/octet-stream"
-        //}
-        //return mimeType as String
-    //}
-
-    //func getFileHash(at url: URL, hashType: HashType) -> String {
-        //do {
-            //let data = try Data(contentsOf: url)
-            //var hash: [UInt8]
-            ////var length: Int32
-            //switch hashType {
-            //case .md5:
-                //hash = [UInt8](repeating: 0, count: Int(CC_MD5_DIGEST_LENGTH))
-                //length = CC_MD5_DIGEST_LENGTH
-                //data.withUnsafeBytes {
-                    //_ = CC_MD5($0.baseAddress, CC_LONG(data.count), &hash)
-                //}
-            //case .sha1:
-                //hash = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
-                //length = CC_SHA1_DIGEST_LENGTH
-                //data.withUnsafeBytes {
-                    //_ = CC_SHA1($0.baseAddress, CC_LONG(data.count), &hash)
-                //}
-            //case .sha256:
-                //hash = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
-                //length = CC_SHA256_DIGEST_LENGTH
-                //data.withUnsafeBytes {
-                    //_ = CC_SHA256($0.baseAddress, CC_LONG(data.count), &hash)
-                //}
-            //}
-            //return hash.map { String(format: "%02hhx", $0) }.joined()
-        //} catch {
-            //print(//"Failed to get file hash: \(error.localizedDescription)")
-            //return //"Unknown"
-        //}
-    //}
 
     func isPermissionGranted(for url: URL, permission: FilePermission) -> Bool {
         do {
@@ -288,7 +246,7 @@ class FileManagerViewModel: ObservableObject {
         isSearching = false
     }
 
-    func sortItems() {
+    private func sortItems() {
         switch sortOption {
         case .name:
             items.sort { $0.name.lowercased() < $1.name.lowercased() }
@@ -303,7 +261,7 @@ class FileManagerViewModel: ObservableObject {
         filterItems()
     }
 
-    func filterItems() {
+    private func filterItems() {
         let sourceItems: [FileSystemItem]
         switch searchScope {
         case .current:
@@ -378,8 +336,4 @@ class FileManagerViewModel: ObservableObject {
             print("Failed to copy file: \(error.localizedDescription)")
         }
     }
-}
-
-enum HashType {
-    case md5, sha1, sha256
 }
