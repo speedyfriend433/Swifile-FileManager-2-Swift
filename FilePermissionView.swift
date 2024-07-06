@@ -5,6 +5,11 @@
 //
 
 
+// FilePermissionView.swift
+//
+// Created by Speedyfriend67 on 30.06.24
+//
+
 import SwiftUI
 
 struct FilePermissionView: View {
@@ -16,10 +21,10 @@ struct FilePermissionView: View {
         
         return List {
             Section(header: Text("File Metadata")) {
-                Text("Name: \(metadata["Name"] ?? "Unknown")")
-                Text("Size: \(metadata["Size"] ?? "Unknown")")
-                Text("Creation Date: \(metadata["Creation Date"] ?? "Unknown")")
-                Text("Modification Date: \(metadata["Modification Date"] ?? "Unknown")")
+                Text("Name: \(metadata.name)")
+                Text("Size: \(metadata.size)")
+                Text("Creation Date: \(metadata.creationDate)")
+                Text("Modification Date: \(metadata.modificationDate)")
             }
 
             Section(header: Text("File Permissions")) {
@@ -37,11 +42,3 @@ struct FilePermissionView: View {
         }
     }
 }
-
-                //Text(//"MIME Type: \(viewModel.getMIMEType(at: fileURL))")
-                //Text(//"MD5: \(viewModel.getFileHash(at: fileURL, hashType: .md5))")
-                //Text(//"SHA1: \(viewModel.getFileHash(at: fileURL, hashType: .sha1))")
-                //Text(//"SHA256: \(viewModel.getFileHash(at: fileURL, hashType: .sha256))")
-                //Text(//"Creation Date: \(viewModel.getCreationDate(at: fileURL))")
-                //Text(//"Modification Date: \(viewModel.getModificationDate(at: fileURL))")
-            

@@ -13,6 +13,13 @@ enum FilePermission: String, CaseIterable {
     case othersExecute = "Others Execute"
 }
 
+struct FileMetadata {
+    let name: String
+    let size: String
+    let creationDate: String
+    let modificationDate: String
+}
+
 class FileManagerViewModel: ObservableObject {
     @Published var items: [FileSystemItem] = []
     @Published var filteredItems: [FileSystemItem] = []
@@ -26,12 +33,14 @@ class FileManagerViewModel: ObservableObject {
     }
     @Published var searchQuery: String = "" {
         didSet {
-            filterItems()
+            if searchScope == .current {
+                filterItems()
+            }
         }
     }
     @Published var searchScope: SearchScope = .current {
         didSet {
-            if searchScope == .root {
+            if searchScope == .root && !searchQuery.isEmpty {
                 loadRootFiles()
             } else {
                 cancelRootSearch()
@@ -61,7 +70,6 @@ class FileManagerViewModel: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let directoryContents = try self.fileManager.contentsOfDirectory(at: self.directory, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
-                var fileSystemItems: [FileSystemItem] = []
                 for url in directoryContents {
                     let resourceValues = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
                     let isDirectory = resourceValues?.isDirectory ?? false
@@ -70,10 +78,11 @@ class FileManagerViewModel: ObservableObject {
                     let creationDate = resourceValues?.creationDate ?? Date()
                     let modificationDate = resourceValues?.contentModificationDate ?? Date()
                     let fileSystemItem = FileSystemItem(name: url.lastPathComponent, isDirectory: isDirectory, url: url, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
-                    fileSystemItems.append(fileSystemItem)
+                    DispatchQueue.main.async {
+                        self.items.append(fileSystemItem)
+                    }
                 }
                 DispatchQueue.main.async {
-                    self.items = fileSystemItems
                     self.sortItems()
                     self.filterItems()
                     self.isSearching = false
@@ -89,15 +98,6 @@ class FileManagerViewModel: ObservableObject {
 
     func showFilePermissions(for item: FileSystemItem) {
         selectedFile = item
-    }
-
-    func getFileMetadata(at url: URL) -> [String: String] {
-        var metadata: [String: String] = [:]
-        metadata["Name"] = url.lastPathComponent
-        metadata["Size"] = getFileSize(at: url)
-        metadata["Creation Date"] = getCreationDate(at: url)
-        metadata["Modification Date"] = getModificationDate(at: url)
-        return metadata
     }
 
     func getFileSize(at url: URL) -> String {
@@ -134,6 +134,14 @@ class FileManagerViewModel: ObservableObject {
             print("Failed to get modification date: \(error.localizedDescription)")
         }
         return "Unknown"
+    }
+
+    func getFileMetadata(at url: URL) -> FileMetadata {
+        let name = url.lastPathComponent
+        let size = getFileSize(at: url)
+        let creationDate = getCreationDate(at: url)
+        let modificationDate = getModificationDate(at: url)
+        return FileMetadata(name: name, size: size, creationDate: creationDate, modificationDate: modificationDate)
     }
 
     func isPermissionGranted(for url: URL, permission: FilePermission) -> Bool {
@@ -214,11 +222,12 @@ class FileManagerViewModel: ObservableObject {
             }
 
         DispatchQueue.global(qos: .userInitiated).async {
-            self.recursiveFileSearch(at: URL(fileURLWithPath: "/"), result: searchResults)
+            self.recursiveFileSearch(at: URL(fileURLWithPath: "/"), result: searchResults, batchSize: 100)
         }
     }
 
-    private func recursiveFileSearch(at url: URL, result: FileSearchResults) {
+    private func recursiveFileSearch(at url: URL, result: FileSearchResults, batchSize: Int = 100) {
+        var batch: [FileSystemItem] = []
         do {
             let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
             for item in contents {
@@ -229,11 +238,22 @@ class FileManagerViewModel: ObservableObject {
                 let creationDate = resourceValues?.creationDate ?? Date()
                 let modificationDate = resourceValues?.contentModificationDate ?? Date()
                 let fileSystemItem = FileSystemItem(name: item.lastPathComponent, isDirectory: isDirectory, url: item, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
-                DispatchQueue.main.async {
-                    result.items.append(fileSystemItem)
+                batch.append(fileSystemItem)
+                
+                if batch.count >= batchSize {
+                    DispatchQueue.main.async {
+                        result.items.append(contentsOf: batch)
+                    }
+                    batch.removeAll()
                 }
+                
                 if isDirectory {
-                    recursiveFileSearch(at: item, result: result)
+                    recursiveFileSearch(at: item, result: result, batchSize: batchSize)
+                }
+            }
+            if !batch.isEmpty {
+                DispatchQueue.main.async {
+                    result.items.append(contentsOf: batch)
                 }
             }
         } catch {
@@ -246,7 +266,7 @@ class FileManagerViewModel: ObservableObject {
         isSearching = false
     }
 
-    private func sortItems() {
+    func sortItems() {
         switch sortOption {
         case .name:
             items.sort { $0.name.lowercased() < $1.name.lowercased() }
@@ -261,7 +281,7 @@ class FileManagerViewModel: ObservableObject {
         filterItems()
     }
 
-    private func filterItems() {
+    func filterItems() {
         let sourceItems: [FileSystemItem]
         switch searchScope {
         case .current:
@@ -271,7 +291,7 @@ class FileManagerViewModel: ObservableObject {
         }
 
         if searchQuery.isEmpty {
-            filteredItems = sourceItems
+            filteredItems = searchScope == .current ? sourceItems : []
         } else {
             filteredItems = sourceItems.filter { $0.name.lowercased().contains(searchQuery.lowercased()) }
         }
