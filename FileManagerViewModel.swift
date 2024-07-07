@@ -221,6 +221,7 @@ class FileManagerViewModel: ObservableObject {
                 self?.filterItems()
             }
 
+        self.results.removeAll()
         startRefreshTimer(searchResults: searchResults)
         startRecursion()
     }
@@ -241,13 +242,17 @@ class FileManagerViewModel: ObservableObject {
     func startRefreshTimer(searchResults: FileSearchResults) {
         refreshTimer?.invalidate()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) {timer in
-            searchResults.items = self.results
-            self.results.removeAll()
-
+            let elementsToTransfer = min(1000, self.results.count)
+            let batch = self.results.prefix(elementsToTransfer)
+            searchResults.items.append(contentsOf: batch)
+            self.results.removeFirst(elementsToTransfer)
+//            searchResults.items = self.results // lag
         }
     }
     
     private func recursiveFileSearch(at url: URL, workItem: DispatchWorkItem) {
+        var tempResults = [FileSystemItem]()
+        
         do {
             let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
             for (_, item) in contents.enumerated() {
@@ -261,13 +266,15 @@ class FileManagerViewModel: ObservableObject {
                 let modificationDate = resourceValues?.contentModificationDate ?? Date()
                 let fileSystemItem = FileSystemItem(name: item.lastPathComponent, isDirectory: isDirectory, url: item, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
                 
-                DispatchQueue.main.async {
-                    self.results.append(fileSystemItem)
-                }
+                tempResults.append(fileSystemItem)
                 
                 if isDirectory {
                     recursiveFileSearch(at: item, workItem: workItem)
                 }
+            }
+            
+            DispatchQueue.main.async {
+                self.results.append(contentsOf: tempResults)
             }
         } catch {
             print("Failed to search files: (error.localizedDescription)")
