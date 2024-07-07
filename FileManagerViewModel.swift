@@ -244,7 +244,9 @@ class FileManagerViewModel: ObservableObject {
                 if isDirectory {
                     recursiveFileSearch(at: item, result: result)
                 }
-                usleep(useconds_t.random(in: 100_000...1_000_000))
+                //usleep(useconds_t.random(in: 100_000...1_000_000))
+
+                  usleep(10_000)
             }
         } catch {
             print("Failed to search files: (error.localizedDescription)")
