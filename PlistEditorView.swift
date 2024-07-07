@@ -43,28 +43,30 @@ struct PlistEditorView: View {
     }
 
     private func loadFile() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let data = try Data(contentsOf: fileURL)
-                if let plist = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] {
-                    DispatchQueue.main.async {
-                        self.plistContent = plist
-                        self.isLoading = false
-                    }
-                } else {
-                    DispatchQueue.main.async {
-                        self.isLoading = false
-                        self.showError = true
-                    }
+    print("Loading file at URL: \(fileURL)")
+    DispatchQueue.global(qos: .userInitiated).async {
+        do {
+            let data = try Data(contentsOf: fileURL)
+            if let plist = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] {
+                DispatchQueue.main.async {
+                    self.plistContent = plist
+                    self.isLoading = false
                 }
-            } catch {
+            } else {
                 DispatchQueue.main.async {
                     self.isLoading = false
                     self.showError = true
                 }
             }
+        } catch {
+            DispatchQueue.main.async {
+                self.isLoading = false
+                self.showError = true
+                print("Failed to load file: \(error.localizedDescription)")
+            }
         }
     }
+}
 
     private func saveFile() {
         DispatchQueue.global(qos: .userInitiated).async {

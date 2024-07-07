@@ -49,13 +49,27 @@ class FileManagerViewModel: ObservableObject {
         }
     }
     @Published var isSearching: Bool = false
-    var directory: URL
+    var directory: URL {
+        didSet {
+            FileManagerViewModel.saveLastDirectoryPath(directory)
+        }
+    }
     private let fileManager = FileManager.default
     private var rootSearchCancellable: AnyCancellable?
 
-    init(directory: URL = URL(fileURLWithPath: "/var")) {
+    init(directory: URL = FileManagerViewModel.loadLastDirectoryPath() ?? URL(fileURLWithPath: "/var")) {
         self.directory = directory
         loadFiles()
+    }
+
+    static let lastDirectoryKey = "lastDirectoryPath"
+
+    static func saveLastDirectoryPath(_ directory: URL) {
+        UserDefaults.standard.set(directory, forKey: lastDirectoryKey)
+    }
+
+    static func loadLastDirectoryPath() -> URL? {
+        return UserDefaults.standard.url(forKey: lastDirectoryKey)
     }
 
     func formattedFileSize(_ size: Int) -> String {
@@ -241,12 +255,11 @@ class FileManagerViewModel: ObservableObject {
 
     func startRefreshTimer(searchResults: FileSearchResults) {
         refreshTimer?.invalidate()
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) {timer in
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
             let elementsToTransfer = min(1000, self.results.count)
             let batch = self.results.prefix(elementsToTransfer)
             searchResults.items.append(contentsOf: batch)
             self.results.removeFirst(elementsToTransfer)
-//            searchResults.items = self.results // lag
         }
     }
     
@@ -256,7 +269,7 @@ class FileManagerViewModel: ObservableObject {
         do {
             let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
             for (_, item) in contents.enumerated() {
-                if workItem.isCancelled == true { return } // ...
+                if workItem.isCancelled == true { return } 
                 
                 let resourceValues = try? item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
                 let isDirectory = resourceValues?.isDirectory ?? false

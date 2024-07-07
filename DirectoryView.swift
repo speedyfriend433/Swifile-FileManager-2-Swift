@@ -3,7 +3,7 @@
 //
 // Created by Speedyfriend67 on 27.06.24
 //
-// 
+
 import SwiftUI
 
 #if canImport(UIKit)
@@ -30,11 +30,17 @@ struct DirectoryView: View {
     @State private var showingSortOptions = false
     @State private var showingSearchBar = false
     @State private var isEditing = false
-    
+
     init(directory: URL) {
         _viewModel = ObservedObject(wrappedValue: FileManagerViewModel(directory: directory))
     }
-    
+
+    init() {
+        let lastPath = FileManagerViewModel.loadLastDirectoryPath()
+        let directory = lastPath ?? URL(fileURLWithPath: "/var")
+        _viewModel = ObservedObject(wrappedValue: FileManagerViewModel(directory: directory))
+    }
+
     var body: some View {
         VStack {
             if showingSearchBar {
@@ -45,7 +51,7 @@ struct DirectoryView: View {
                 .pickerStyle(SegmentedPickerStyle())
                 .padding()
             }
-            
+
             if showingSearchBar {
                 SearchBar(text: $viewModel.searchQuery, onSearchButtonClicked: {
                     hideKeyboard()
@@ -60,7 +66,7 @@ struct DirectoryView: View {
                 ProgressView("Searching...")
                     .padding()
             }
-            
+
             List(selection: $viewModel.selectedItems) {
                 ForEach(viewModel.filteredItems) { item in
                     NavigationLink(destination: destinationView(for: item)) {
@@ -72,8 +78,6 @@ struct DirectoryView: View {
                                 Image(systemName: "folder")
                             } else if item.isSymlink {
                                 Image(systemName: "link")
-                            } else if item.isImageFile {
-                                Image(systemName: "photo")
                             } else {
                                 Image(systemName: "doc")
                             }
@@ -208,11 +212,7 @@ struct DirectoryView: View {
             )
         }
         .sheet(item: $viewModel.selectedFile) { selectedFile in
-            if selectedFile.isImageFile {
-                ImageMetadataView(fileURL: selectedFile.url)
-            } else {
-                FilePermissionView(viewModel: viewModel, fileURL: selectedFile.url)
-            }
+            FilePermissionView(viewModel: viewModel, fileURL: selectedFile.url)
         }
     }
 
@@ -230,7 +230,7 @@ struct DirectoryView: View {
         } else if item.isTextFile {
             return AnyView(TextFileView(fileURL: item.url))
         } else if item.isImageFile {
-            return AnyView(ImageMetadataView(fileURL: item.url))
+            return AnyView(ImageFileView(fileURL: item.url))
         } else if item.isPlistFile {
             return AnyView(PlistEditorView(fileURL: item.url))
         } else if item.isHexFile {
@@ -244,7 +244,8 @@ struct DirectoryView: View {
         do {
             let destination = try FileManager.default.destinationOfSymbolicLink(atPath: url.path)
             let resolvedURL = URL(fileURLWithPath: destination)
-            
+
+            // Check if the resolved URL exists
             if FileManager.default.fileExists(atPath: resolvedURL.path) {
                 return resolvedURL
             } else {
