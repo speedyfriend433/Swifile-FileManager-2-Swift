@@ -178,7 +178,7 @@ class FileManagerViewModel: ObservableObject {
 
     func toggleFilePermission(at url: URL, permission: FilePermission) {
         do {
-            var attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
             if let posixPermissions = attributes[.posixPermissions] as? NSNumber {
                 var posixInt = posixPermissions.uint16Value
                 switch permission {
@@ -221,16 +221,38 @@ class FileManagerViewModel: ObservableObject {
                 self?.filterItems()
             }
 
-        DispatchQueue.global(qos: .userInitiated).async {
-            self.recursiveFileSearch(at: URL(fileURLWithPath: "/"), result: searchResults)
+        startRefreshTimer(searchResults: searchResults)
+        startRecursion()
+    }
+    
+    private var refreshTimer: Timer?
+    private var workItem: DispatchWorkItem?
+    private var results = [FileSystemItem]()
+
+    func startRecursion() {
+        workItem?.cancel()
+        workItem = DispatchWorkItem {
+            if self.workItem?.isCancelled == true { return }
+            self.recursiveFileSearch(at: URL(fileURLWithPath: "/"), workItem: self.workItem!)
         }
+        DispatchQueue.global().async(execute: workItem!)
     }
 
-    private func recursiveFileSearch(at url: URL, result: FileSearchResults) {
+    func startRefreshTimer(searchResults: FileSearchResults) {
+        refreshTimer?.invalidate()
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) {timer in
+            searchResults.items = self.results
+            self.results.removeAll()
+
+        }
+    }
+    
+    private func recursiveFileSearch(at url: URL, workItem: DispatchWorkItem) {
         do {
             let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
-            let totalContents = contents.count
-            for (index, item) in contents.enumerated() {
+            for (_, item) in contents.enumerated() {
+                if workItem.isCancelled == true { return } // ...
+                
                 let resourceValues = try? item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
                 let isDirectory = resourceValues?.isDirectory ?? false
                 let isSymlink = resourceValues?.isSymbolicLink ?? false
@@ -238,15 +260,14 @@ class FileManagerViewModel: ObservableObject {
                 let creationDate = resourceValues?.creationDate ?? Date()
                 let modificationDate = resourceValues?.contentModificationDate ?? Date()
                 let fileSystemItem = FileSystemItem(name: item.lastPathComponent, isDirectory: isDirectory, url: item, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
+                
                 DispatchQueue.main.async {
-                    result.items.append(fileSystemItem)
+                    self.results.append(fileSystemItem)
                 }
+                
                 if isDirectory {
-                    recursiveFileSearch(at: item, result: result)
+                    recursiveFileSearch(at: item, workItem: workItem)
                 }
-                //usleep(useconds_t.random(in: 100_000...1_000_000))
-
-                  usleep(10_000)
             }
         } catch {
             print("Failed to search files: (error.localizedDescription)")
