@@ -4,6 +4,12 @@
 // Created by Speedyfriend67 on 27.06.24
 //
  
+//
+// HexEditorView.swift
+//
+// Created by Speedyfriend67 on 27.06.24
+//
+ 
 import SwiftUI
 
 struct HexEditorView: View {
