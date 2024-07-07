@@ -38,7 +38,7 @@ struct HexEditorView: View {
                         .padding(.horizontal, 5)
                     }
                     .background(Color.black)
-                    .onChange(of: jumpToAddress) { oldValue, newValue in
+                    .onChange(of: jumpToAddress) { newValue in
                         if let address = Int(newValue, radix: 16) {
                             withAnimation {
                                 scrollView.scrollTo(address, anchor: .top)

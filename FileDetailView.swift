@@ -66,7 +66,12 @@ struct FileDetailView: View {
 
     private func shareFile() {
         let activityViewController = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
-        if let topController = UIApplication.shared.windows.first?.rootViewController {
+        
+        let scenes = UIApplication.shared.connectedScenes
+        let windowScene = scenes.first as? UIWindowScene
+        let window = windowScene?.windows.first
+        
+        if let topController = window?.rootViewController {
             topController.present(activityViewController, animated: true, completion: nil)
         }
     }
