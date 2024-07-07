@@ -222,15 +222,15 @@ class FileManagerViewModel: ObservableObject {
             }
 
         DispatchQueue.global(qos: .userInitiated).async {
-            self.recursiveFileSearch(at: URL(fileURLWithPath: "/"), result: searchResults, batchSize: 100)
+            self.recursiveFileSearch(at: URL(fileURLWithPath: "/"), result: searchResults)
         }
     }
 
-    private func recursiveFileSearch(at url: URL, result: FileSearchResults, batchSize: Int = 100) {
-        var batch: [FileSystemItem] = []
+    private func recursiveFileSearch(at url: URL, result: FileSearchResults) {
         do {
             let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
-            for item in contents {
+            let totalContents = contents.count
+            for (index, item) in contents.enumerated() {
                 let resourceValues = try? item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
                 let isDirectory = resourceValues?.isDirectory ?? false
                 let isSymlink = resourceValues?.isSymbolicLink ?? false
@@ -238,26 +238,16 @@ class FileManagerViewModel: ObservableObject {
                 let creationDate = resourceValues?.creationDate ?? Date()
                 let modificationDate = resourceValues?.contentModificationDate ?? Date()
                 let fileSystemItem = FileSystemItem(name: item.lastPathComponent, isDirectory: isDirectory, url: item, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
-                batch.append(fileSystemItem)
-                
-                if batch.count >= batchSize {
-                    DispatchQueue.main.async {
-                        result.items.append(contentsOf: batch)
-                    }
-                    batch.removeAll()
-                }
-                
-                if isDirectory {
-                    recursiveFileSearch(at: item, result: result, batchSize: batchSize)
-                }
-            }
-            if !batch.isEmpty {
                 DispatchQueue.main.async {
-                    result.items.append(contentsOf: batch)
+                    result.items.append(fileSystemItem)
                 }
+                if isDirectory {
+                    recursiveFileSearch(at: item, result: result)
+                }
+                usleep(useconds_t.random(in: 100_000...1_000_000))
             }
         } catch {
-            print("Failed to search files: \(error.localizedDescription)")
+            print("Failed to search files: (error.localizedDescription)")
         }
     }
 
