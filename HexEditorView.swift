@@ -38,7 +38,7 @@ struct HexEditorView: View {
                         .padding(.horizontal, 5)
                     }
                     .background(Color.black)
-                    .onChange(of: jumpToAddress) { newValue in
+                    .onChange(of: jumpToAddress) { oldValue, newValue in
                         if let address = Int(newValue, radix: 16) {
                             withAnimation {
                                 scrollView.scrollTo(address, anchor: .top)
@@ -101,7 +101,7 @@ struct HeaderView: View {
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding(.horizontal)
             Button(action: {
-                if let address = Int(jumpToAddress, radix: 16) {
+                if Int(jumpToAddress, radix: 16) != nil {
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) // Dismiss the keyboard
                 }
                 onSearch()
