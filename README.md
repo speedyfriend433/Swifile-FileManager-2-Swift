@@ -51,8 +51,13 @@ Revived From Original Swifile
 3. Build and run the project on your simulator or device. (actually you can just build this on FridaCodeManager)
 
 ## Supported Versions
-Device : iPhone 6 ~ iPhone 15 Pro Max
-iOS Version : iOS 15.0 ~ iOS 17.0 (Through Trollstore) // iOS 15.0 ~ iOS 17.5 (Based on Apple Simulator With No File R/W Access)
+
+Device : 
+iPhone 6 ~ iPhone 15 Pro Max
+
+iOS Version : 
+iOS 15.0 ~ iOS 17.0 (Through Trollstore) 
+iOS 15.0 ~ iOS 17.5 (Based on Apple Simulator With No File R/W Access)
 
 ## Usage
 
