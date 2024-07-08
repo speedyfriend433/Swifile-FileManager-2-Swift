@@ -104,6 +104,7 @@ iOS 15.0 ~ iOS 17.5 (Based on Apple Simulator With No File R/W Access)
 ## To-Do List
 
 - file / folder functions fix on /var (restricted to /mobile yet) 50% ✅
+- Optimize Root search Lag / Crashes ✅
 - info button fix ✅
 - add files metadata view ✅
 - support for more file extensions ✅
