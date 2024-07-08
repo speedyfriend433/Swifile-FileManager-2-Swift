@@ -7,65 +7,61 @@
 import Foundation
 
 enum FileOperationError: Error {
+    case relativePathNotAllowed(path: String)
     case notADirectory(path: String)
     case alreadyExists(path: String)
-    case relativePathNotAllowed(path: String)
     case unknownError(description: String)
+    case notEnoughArguments
+    case unknownAction
 }
 
 class FileOperations {
     
     static func contentsOfDirectory(at path: String) throws {
-        let fileManager = FileManager.default
-        var isDir: ObjCBool = false
-        
-        guard !path.hasPrefix(".") else {
+        if path.hasPrefix(".") {
             throw FileOperationError.relativePathNotAllowed(path: path)
         }
         
-        guard fileManager.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
-            throw FileOperationError.notADirectory(path: path)
-        }
-        
-        let contents = try fileManager.contentsOfDirectory(atPath: path)
-        for item in contents {
-            if item != "." && item != ".." {
+        let fm = FileManager.default
+        var isDir: ObjCBool = false
+        if fm.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue {
+            let contents = try fm.contentsOfDirectory(atPath: path)
+            for item in contents {
                 print(item)
             }
+        } else {
+            throw FileOperationError.notADirectory(path: path)
         }
     }
     
     static func removeItem(at path: String) throws {
-        let fileManager = FileManager.default
-        try fileManager.removeItem(atPath: path)
+        let fm = FileManager.default
+        try fm.removeItem(atPath: path)
     }
     
     static func createItem(at path: String) throws {
-        let fileManager = FileManager.default
-        
-        guard !fileManager.fileExists(atPath: path) else {
+        let fm = FileManager.default
+        if fm.fileExists(atPath: path) {
             throw FileOperationError.alreadyExists(path: path)
         }
-        
-        fileManager.createFile(atPath: path, contents: Data(), attributes: nil)
+        let created = fm.createFile(atPath: path, contents: Data(), attributes: nil)
+        if !created {
+            throw FileOperationError.unknownError(description: "Failed to create file at path: \(path)")
+        }
         do {
-            let attributes: [FileAttributeKey: Any] = [
-                .ownerAccountID: 501, // Equivalent to 'mobile' user in some environments
-                .groupOwnerAccountID: 501
-            ]
-            try fileManager.setAttributes(attributes, ofItemAtPath: path)
+            try fm.setAttributes([FileAttributeKey.ownerAccountID: 501, FileAttributeKey.groupOwnerAccountID: 501], ofItemAtPath: path)
         } catch {
             throw FileOperationError.unknownError(description: "Failed to set owner. \(error.localizedDescription)")
         }
     }
     
-    static func copyFile(from fromPath: String, to toPath: String) throws {
-        let fileManager = FileManager.default
-        try fileManager.copyItem(atPath: fromPath, toPath: toPath)
+    static func copyFile(from: String, to: String) throws {
+        let fm = FileManager.default
+        try fm.copyItem(atPath: from, toPath: to)
     }
     
-    static func moveItem(from fromPath: String, to toPath: String) throws {
-        let fileManager = FileManager.default
-        try fileManager.moveItem(atPath: fromPath, toPath: toPath)
+    static func moveItem(from: String, to: String) throws {
+        try copyFile(from: from, to: to)
+        try removeItem(at: from)
     }
 }
