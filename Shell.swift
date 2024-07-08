@@ -1,15 +1,16 @@
 import Foundation
 import Darwin
 
-// shell("whoami")/shell("whoami", false) run as mobile
-// shell("whoami", true) runs as root
-// shell just runs bash so only works while jailbroken
-@discardableResult func shell(_ command: String, _ Root: Bool = false) -> Int {
-    if let JBRoot = FindJBRoot() {
-        return runCommand("/usr/bin/bash", ["-c", command], Root ? 0 : 501, JBRoot)
+@discardableResult
+func shell(_ command: String, asRoot: Bool = false) -> Int {
+    if asRoot {
+        guard let rootPath = findJBRoot() else {
+            print("Jailbreak root not found")
+            return -1
+        }
+        return runCommand("/usr/bin/bash", ["-c", command], 0, rootPath)
     } else {
-        //Not jailbroken?
-        return -1
+        return runCommand("/usr/bin/bash", ["-c", command], 501)
     }
 }
 
@@ -21,7 +22,7 @@ func posix_spawnattr_set_persona_uid_np(_ attr: UnsafeMutablePointer<posix_spawn
 @_silgen_name("posix_spawnattr_set_persona_gid_np")
 func posix_spawnattr_set_persona_gid_np(_ attr: UnsafeMutablePointer<posix_spawnattr_t?>, _ persona_id: uid_t) -> Int32
 
-// Actual function to spawn executables
+// Function to spawn executables
 func runCommand(_ command: String, _ args: [String], _ uid: uid_t, _ rootPath: String = "") -> Int {
     var pid: pid_t = 0
     let args: [String] = [String(command.split(separator: "/").last!)] + args
@@ -43,19 +44,17 @@ func runCommand(_ command: String, _ args: [String], _ uid: uid_t, _ rootPath: S
     return Int(status)
 }
 
-func FindJBRoot() -> String? {
+// Function to find the jailbreak root
+func findJBRoot() -> String? {
     if FileManager.default.fileExists(atPath: "/usr/bin/bash") {
-        //Rootfull JB
         return ""
     } else if FileManager.default.fileExists(atPath: "/var/jb/usr/bin/bash") {
-        //Rootless JB
         return "/var/jb"
     } else {
-        //RootHide JB
         do {
-            let ApplicationsPath = "/var/containers/Bundle/Application"
-            if let JBRoot = try FileManager.default.contentsOfDirectory(atPath: ApplicationsPath).filter({$0.hasPrefix(".jbroot")}).first {
-                return "\(ApplicationsPath)/\(JBRoot)"
+            let applicationsPath = "/var/containers/Bundle/Application"
+            if let jbRoot = try FileManager.default.contentsOfDirectory(atPath: applicationsPath).first(where: { $0.hasPrefix(".jbroot") }) {
+                return "\(applicationsPath)/\(jbRoot)"
             } else {
                 return nil
             }
@@ -64,4 +63,11 @@ func FindJBRoot() -> String? {
             return nil
         }
     }
+}
+
+// Main function to run the example
+func main() {
+    print("Running shell command as root...")
+    let result = shell("whoami", asRoot: true)
+    print("Command exited with status \(result)")
 }
