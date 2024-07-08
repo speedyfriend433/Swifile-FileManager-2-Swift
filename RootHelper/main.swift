@@ -4,6 +4,7 @@
 // Created by Speedyfriend67 on 30.06.24
 //
 import Foundation
+import Darwin
 
 func help() {
     print("""
@@ -30,7 +31,7 @@ func help() {
 
 func moveItems(_ args: [String]) throws {
     guard (args.count - 1) % 2 == 0 else {
-        throw FileOperationError.notEnoughArguments
+        throw FileOperationError.invalidPath
     }
     for i in stride(from: 1, to: args.count, by: 2) {
         try FileOperations.moveItem(from: args[i], to: args[i + 1])
@@ -39,7 +40,7 @@ func moveItems(_ args: [String]) throws {
 
 func copyItems(_ args: [String]) throws {
     guard (args.count - 1) % 2 == 0 else {
-        throw FileOperationError.notEnoughArguments
+        throw FileOperationError.invalidPath
     }
     for i in stride(from: 1, to: args.count, by: 2) {
         try FileOperations.copyFile(from: args[i], to: args[i + 1])
@@ -70,7 +71,7 @@ func main() {
                 }
             case "createdir", "md":
                 for i in 2..<args.count {
-                    try FileManager.default.createDirectory(atPath: args[i], withIntermediateDirectories: false, attributes: nil)
+                    try FileOperations.createDirectory(at: args[i])
                 }
             case "move", "mv":
                 try moveItems(Array(args[2...]))
@@ -84,7 +85,7 @@ func main() {
                 exit(0)
             default:
                 help()
-                throw FileOperationError.unknownAction
+                throw FileOperationError.unknownError(description: "Unknown action")
             }
         } catch {
             print("Error: \(error)")
@@ -92,4 +93,3 @@ func main() {
         }
     }
 }
-
