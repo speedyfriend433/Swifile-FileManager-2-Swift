@@ -30,17 +30,11 @@ struct DirectoryView: View {
     @State private var showingSortOptions = false
     @State private var showingSearchBar = false
     @State private var isEditing = false
-
+    
     init(directory: URL) {
         _viewModel = ObservedObject(wrappedValue: FileManagerViewModel(directory: directory))
     }
-
-    init() {
-        let lastPath = FileManagerViewModel.loadLastDirectoryPath()
-        let directory = lastPath ?? URL(fileURLWithPath: "/var")
-        _viewModel = ObservedObject(wrappedValue: FileManagerViewModel(directory: directory))
-    }
-
+    
     var body: some View {
         VStack {
             if showingSearchBar {
@@ -51,7 +45,7 @@ struct DirectoryView: View {
                 .pickerStyle(SegmentedPickerStyle())
                 .padding()
             }
-
+            
             if showingSearchBar {
                 SearchBar(text: $viewModel.searchQuery, onSearchButtonClicked: {
                     hideKeyboard()
@@ -66,7 +60,7 @@ struct DirectoryView: View {
                 ProgressView("Searching...")
                     .padding()
             }
-
+            
             List(selection: $viewModel.selectedItems) {
                 ForEach(viewModel.filteredItems) { item in
                     NavigationLink(destination: destinationView(for: item)) {
@@ -216,7 +210,7 @@ struct DirectoryView: View {
         }
     }
 
-    private func destinationView(for item: FileSystemItem) -> some View {
+        private func destinationView(for item: FileSystemItem) -> some View {
         if item.isDirectory {
             if item.isSymlink {
                 if let resolvedURL = resolveSymlink(at: item.url) {
@@ -230,11 +224,15 @@ struct DirectoryView: View {
         } else if item.isTextFile {
             return AnyView(TextFileView(fileURL: item.url))
         } else if item.isImageFile {
-            return AnyView(ImageFileView(fileURL: item.url))
+            return AnyView(ImageMetadataView(fileURL: item.url))
         } else if item.isPlistFile {
             return AnyView(PlistEditorView(fileURL: item.url))
         } else if item.isHexFile {
             return AnyView(HexEditorView(fileURL: item.url))
+        } else if item.isAudioFile {
+            return AnyView(AudioPlayerView(fileURL: item.url))
+        } else if item.isVideoFile {
+            return AnyView(VideoPlayerView(fileURL: item.url))
         } else {
             return AnyView(FileDetailView(fileURL: item.url))
         }
@@ -244,7 +242,7 @@ struct DirectoryView: View {
         do {
             let destination = try FileManager.default.destinationOfSymbolicLink(atPath: url.path)
             let resolvedURL = URL(fileURLWithPath: destination)
-
+            
             // Check if the resolved URL exists
             if FileManager.default.fileExists(atPath: resolvedURL.path) {
                 return resolvedURL

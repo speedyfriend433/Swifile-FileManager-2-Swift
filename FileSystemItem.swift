@@ -7,29 +7,42 @@
 import Foundation
 
 struct FileSystemItem: Identifiable {
-    var id = UUID()
-    var name: String
-    var isDirectory: Bool
-    var url: URL
-    var size: Int
-    var creationDate: Date
-    var modificationDate: Date
-    var isSymlink: Bool
-    
-    // File type checks
+    let id = UUID()
+    let name: String
+    let isDirectory: Bool
+    let url: URL
+    let size: Int
+    let creationDate: Date
+    let modificationDate: Date
+    let isSymlink: Bool
+
     var isTextFile: Bool {
-        return url.pathExtension.lowercased() == "txt"
+        let textFileExtensions = ["txt", "xml", "entitlements", "xm", "py", "swift", "x", "hwpx", "js", "hwp"]
+        return textFileExtensions.contains(url.pathExtension.lowercased())
     }
-    
-    var isImageFile: Bool {
-        return ["png", "jpg", "jpeg", "gif"].contains(url.pathExtension.lowercased())
-    }
-    
+
     var isPlistFile: Bool {
-        return url.pathExtension.lowercased() == "plist"
+        let plistFileExtensions = ["plist", "entitlements", "strings"]
+        return plistFileExtensions.contains(url.pathExtension.lowercased())
     }
-    
+
     var isHexFile: Bool {
-        return url.pathExtension.lowercased() == "dylib"
+        let hexFileExtensions = ["hex", "dylib"]
+        return hexFileExtensions.contains(url.pathExtension.lowercased())
+    }
+
+    var isImageFile: Bool {
+        let imageFileExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "tiff"]
+        return imageFileExtensions.contains(url.pathExtension.lowercased())
+    }
+
+    var isAudioFile: Bool {
+        let audioFileExtensions = ["mp3"]
+        return audioFileExtensions.contains(url.pathExtension.lowercased())
+    }
+
+    var isVideoFile: Bool {
+        let videoFileExtensions = ["mp4", "mov"]
+        return videoFileExtensions.contains(url.pathExtension.lowercased())
     }
 }
