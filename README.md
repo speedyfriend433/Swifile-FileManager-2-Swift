@@ -103,11 +103,11 @@ iOS 15.0 ~ iOS 17.5 (Based on Apple Simulator With No File R/W Access)
 
 ## To-Do List
 
-- file / folder functions fix on /var (restricted to /mobile yet)
+- file / folder functions fix on /var (restricted to /mobile yet) 50% ✅
 - info button fix ✅
 - add files metadata view ✅
-- support for more file extensions 
-- add music , video player
+- support for more file extensions ✅
+- add music , video player ✅
 - zip archive (will be implemented in Xcode after this update is completed)
 
 ## Screenshots
