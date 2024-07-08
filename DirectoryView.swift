@@ -211,32 +211,32 @@ struct DirectoryView: View {
     }
 
         private func destinationView(for item: FileSystemItem) -> some View {
-        if item.isDirectory {
-            if item.isSymlink {
-                if let resolvedURL = resolveSymlink(at: item.url) {
-                    return AnyView(DirectoryView(directory: resolvedURL))
-                } else {
-                    return AnyView(Text("Invalid symlink: \(item.name)"))
-                }
+    if item.isDirectory {
+        if item.isSymlink {
+            if let resolvedURL = resolveSymlink(at: item.url) {
+                return AnyView(DirectoryView(directory: resolvedURL))
             } else {
-                return AnyView(DirectoryView(directory: item.url))
+                return AnyView(Text("Invalid symlink: \(item.name)"))
             }
-        } else if item.isTextFile {
-            return AnyView(TextFileView(fileURL: item.url))
-        } else if item.isImageFile {
-            return AnyView(ImageMetadataView(fileURL: item.url))
-        } else if item.isPlistFile {
-            return AnyView(PlistEditorView(fileURL: item.url))
-        } else if item.isHexFile {
-            return AnyView(HexEditorView(fileURL: item.url))
-        } else if item.isAudioFile {
-            return AnyView(AudioPlayerView(fileURL: item.url))
-        } else if item.isVideoFile {
-            return AnyView(VideoPlayerView(fileURL: item.url))
         } else {
-            return AnyView(FileDetailView(fileURL: item.url))
+            return AnyView(DirectoryView(directory: item.url))
         }
+    } else if item.isTextFile {
+        return AnyView(TextFileView(fileURL: item.url))
+    } else if item.isImageFile {
+        return AnyView(ImageMetadataView(fileURL: item.url))
+    } else if item.isPlistFile {
+        return AnyView(PlistEditorView(fileURL: item.url))
+    } else if item.isHexFile {
+        return AnyView(HexEditorView(fileURL: item.url))
+    } else if item.isVideoFile {
+        return AnyView(VideoPlayerView(fileURL: item.url))
+    } else if item.isAudioFile {
+        return AnyView(AudioPlayerView(fileURL: item.url))
+    } else {
+        return AnyView(FileDetailView(fileURL: item.url))
     }
+}
 
     private func resolveSymlink(at url: URL) -> URL? {
         do {
