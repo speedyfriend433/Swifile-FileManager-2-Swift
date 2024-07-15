@@ -9,6 +9,7 @@ import AVFoundation
 
 struct AudioPlayerView: UIViewControllerRepresentable {
     let fileURL: URL
+    @Binding var progress: Double
 
     class Coordinator: NSObject, AVAudioPlayerDelegate {
         var player: AVAudioPlayer?
@@ -23,34 +24,22 @@ struct AudioPlayerView: UIViewControllerRepresentable {
             guard let player = player else { return }
             if player.isPlaying {
                 player.pause()
+                timer?.invalidate()
             } else {
                 player.play()
                 startTimer()
             }
         }
 
-        @objc func updateProgress() {
-            guard let player = player else { return }
-            parent.progress = player.currentTime / player.duration
-        }
-
         func startTimer() {
-            timer?.invalidate()
-            timer = Timer.scheduledTimer(timeInterval: 0.1, target: self, selector: #selector(updateProgress), userInfo: nil, repeats: true)
-        }
-
-        func stopTimer() {
-            timer?.invalidate()
-            timer = nil
-        }
-
-        func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-            stopTimer()
-            parent.progress = 0
+            timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+                guard let player = self.player else { return }
+                let currentTime = player.currentTime
+                let duration = player.duration
+                self.parent.progress = currentTime / duration
+            }
         }
     }
-
-    @Binding var progress: Double
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -63,9 +52,16 @@ struct AudioPlayerView: UIViewControllerRepresentable {
         playButton.translatesAutoresizingMaskIntoConstraints = false
         viewController.view.addSubview(playButton)
 
+        let progressView = UIProgressView(progressViewStyle: .default)
+        progressView.translatesAutoresizingMaskIntoConstraints = false
+        viewController.view.addSubview(progressView)
+
         NSLayoutConstraint.activate([
             playButton.centerXAnchor.constraint(equalTo: viewController.view.centerXAnchor),
-            playButton.centerYAnchor.constraint(equalTo: viewController.view.centerYAnchor)
+            playButton.centerYAnchor.constraint(equalTo: viewController.view.centerYAnchor),
+            progressView.topAnchor.constraint(equalTo: playButton.bottomAnchor, constant: 20),
+            progressView.leadingAnchor.constraint(equalTo: viewController.view.leadingAnchor, constant: 20),
+            progressView.trailingAnchor.constraint(equalTo: viewController.view.trailingAnchor, constant: 20)
         ])
 
         playButton.addTarget(context.coordinator, action: #selector(Coordinator.playPauseAudio), for: .touchUpInside)
@@ -73,8 +69,8 @@ struct AudioPlayerView: UIViewControllerRepresentable {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let player = try AVAudioPlayer(contentsOf: self.fileURL)
-                player.delegate = context.coordinator
                 player.prepareToPlay()
+                player.delegate = context.coordinator
                 DispatchQueue.main.async {
                     context.coordinator.player = player
                 }
@@ -86,11 +82,15 @@ struct AudioPlayerView: UIViewControllerRepresentable {
         return viewController
     }
 
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        if let progressView = uiViewController.view.subviews.compactMap({ $0 as? UIProgressView }).first {
+            progressView.progress = Float(progress)
+        }
+    }
 }
 
 struct AudioPlayerView_Previews: PreviewProvider {
     static var previews: some View {
-        AudioPlayerView(fileURL: URL(fileURLWithPath: "/path/to/audio.mp3"), progress: .constant(0))
+        AudioPlayerView(fileURL: URL(fileURLWithPath: "/path/to/audio.mp3"), progress: .constant(0.5))
     }
 }

@@ -36,13 +36,17 @@ struct FileSystemItem: Identifiable {
         return imageFileExtensions.contains(url.pathExtension.lowercased())
     }
 
+    var isVideoFile: Bool {
+        let videoFileExtensions = ["mov", "mp4"]
+        return videoFileExtensions.contains(url.pathExtension.lowercased())
+    }
+
     var isAudioFile: Bool {
         let audioFileExtensions = ["mp3"]
         return audioFileExtensions.contains(url.pathExtension.lowercased())
     }
 
-    var isVideoFile: Bool {
-        let videoFileExtensions = ["mp4", "mov"]
-        return videoFileExtensions.contains(url.pathExtension.lowercased())
+    var formattedFileSize: String {
+        ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
     }
 }

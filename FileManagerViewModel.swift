@@ -300,19 +300,22 @@ class FileManagerViewModel: ObservableObject {
     }
 
     func sortItems() {
-        switch sortOption {
-        case .name:
-            items.sort { $0.name.lowercased() < $1.name.lowercased() }
-            rootItems.sort { $0.name.lowercased() < $1.name.lowercased() }
-        case .date:
-            items.sort { $0.creationDate < $1.creationDate }
-            rootItems.sort { $0.creationDate < $1.creationDate }
-        case .modified:
-            items.sort { $0.modificationDate < $1.modificationDate }
-            rootItems.sort { $0.modificationDate < $1.modificationDate }
-        }
-        filterItems()
+    switch sortOption {
+    case .name:
+        items.sort { $0.name.lowercased() < $1.name.lowercased() }
+        rootItems.sort { $0.name.lowercased() < $1.name.lowercased() }
+    case .date:
+        items.sort { $0.creationDate < $1.creationDate }
+        rootItems.sort { $0.creationDate < $1.creationDate }
+    case .modified:
+        items.sort { $0.modificationDate < $1.modificationDate }
+        rootItems.sort { $0.modificationDate < $1.modificationDate }
+    case .size:
+        items.sort { $0.size > $1.size }
+        rootItems.sort { $0.size > $1.size }
     }
+    filterItems()
+}
 
     func filterItems() {
         let sourceItems: [FileSystemItem]

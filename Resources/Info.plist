@@ -2,28 +2,28 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleExecutable</key>
-	<string>Swifile 2</string>
-	<key>CFBundleIconFile</key>
-	<string>AppIcon.png</string>
-	<key>CFBundleIdentifier</key>
-	<string>com.swifile.revive</string>
-	<key>CFBundleName</key>
-	<string>Swifile 2</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
-	<key>CFBundleVersion</key>
-	<string>1.0</string>
-	<key>MinimumOSVersion</key>
-	<string>15.0</string>
-        <key>UIBackgroundModes</key>
-        <array>
+    <key>CFBundleExecutable</key>
+    <string>Swifile 2</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon.png</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.swifile.revive</string>
+    <key>CFBundleName</key>
+    <string>Swifile 2</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1.0</string>
+    <key>MinimumOSVersion</key>
+    <string>15.0</string>
+    <key>UIBackgroundModes</key>
+    <array>
         <string>audio</string>
-        </array>
-	<key>UILaunchScreen</key>
-	<dict>
+    </array>
+    <key>UILaunchScreen</key>
+    <dict>
         <key>UILaunchScreen</key>
-	<dict/>
-	</dict>
-        </dict>
-        </plist>
+        <dict/>
+    </dict>
+</dict>
+</plist>

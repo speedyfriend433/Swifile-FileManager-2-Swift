@@ -9,7 +9,7 @@ import SwiftUI
 struct ContentView: View {
     var body: some View {
         NavigationView {
-            DirectoryView(directory: URL(fileURLWithPath: "/var"))
+            DirectoryView(directory: URL(fileURLWithPath: "/"))
         }
     }
 }

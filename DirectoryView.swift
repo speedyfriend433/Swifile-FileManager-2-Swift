@@ -30,7 +30,8 @@ struct DirectoryView: View {
     @State private var showingSortOptions = false
     @State private var showingSearchBar = false
     @State private var isEditing = false
-    
+    @State private var progress: Double = 0.0
+
     init(directory: URL) {
         _viewModel = ObservedObject(wrappedValue: FileManagerViewModel(directory: directory))
     }
@@ -75,7 +76,14 @@ struct DirectoryView: View {
                             } else {
                                 Image(systemName: "doc")
                             }
-                            Text(item.name)
+                            VStack(alignment: .leading) {
+                                Text(item.name)
+                                if !item.isDirectory {
+                                    Text(item.formattedFileSize)
+                                        .font(.subheadline)
+                                        .foregroundColor(.gray)
+                                }
+                            }
                             Spacer()
                             if !item.isDirectory {
                                 Text(viewModel.formattedFileSize(item.size))
@@ -210,33 +218,33 @@ struct DirectoryView: View {
         }
     }
 
-        private func destinationView(for item: FileSystemItem) -> some View {
-    if item.isDirectory {
-        if item.isSymlink {
-            if let resolvedURL = resolveSymlink(at: item.url) {
-                return AnyView(DirectoryView(directory: resolvedURL))
+    private func destinationView(for item: FileSystemItem) -> some View {
+        if item.isDirectory {
+            if item.isSymlink {
+                if let resolvedURL = resolveSymlink(at: item.url) {
+                    return AnyView(DirectoryView(directory: resolvedURL))
+                } else {
+                    return AnyView(Text("Invalid symlink: \(item.name)"))
+                }
             } else {
-                return AnyView(Text("Invalid symlink: \(item.name)"))
+                return AnyView(DirectoryView(directory: item.url))
             }
+        } else if item.isTextFile {
+            return AnyView(TextFileView(fileURL: item.url))
+        } else if item.isImageFile {
+            return AnyView(ImageMetadataView(fileURL: item.url))
+        } else if item.isPlistFile {
+            return AnyView(PlistEditorView(fileURL: item.url))
+        } else if item.isHexFile {
+            return AnyView(HexEditorView(fileURL: item.url))
+        } else if item.isVideoFile {
+            return AnyView(VideoPlayerView(fileURL: item.url))
+        } else if item.isAudioFile {
+            return AnyView(AudioPlayerView(fileURL: item.url, progress: $progress))
         } else {
-            return AnyView(DirectoryView(directory: item.url))
+            return AnyView(FileDetailView(fileURL: item.url))
         }
-    } else if item.isTextFile {
-        return AnyView(TextFileView(fileURL: item.url))
-    } else if item.isImageFile {
-        return AnyView(ImageMetadataView(fileURL: item.url))
-    } else if item.isPlistFile {
-        return AnyView(PlistEditorView(fileURL: item.url))
-    } else if item.isHexFile {
-        return AnyView(HexEditorView(fileURL: item.url))
-    } else if item.isVideoFile {
-        return AnyView(VideoPlayerView(fileURL: item.url))
-    } else if item.isAudioFile {
-        return AnyView(AudioPlayerView(fileURL: item.url))
-    } else {
-        return AnyView(FileDetailView(fileURL: item.url))
     }
-}
 
     private func resolveSymlink(at url: URL) -> URL? {
         do {

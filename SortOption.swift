@@ -7,15 +7,18 @@
 import Foundation
 
 enum SortOption: String, CaseIterable {
-    case name = "Name"
-    case date = "Date"
-    case modified = "Modified"
+    
+    case name
+    case date
+    case modified
+    case size
 
     var title: String {
         switch self {
         case .name: return "Name"
-        case .date: return "Date"
-        case .modified: return "Modified"
+        case .date: return "Date Created"
+        case .modified: return "Date Modified"
+        case .size: return "Size"
         }
     }
 
@@ -24,7 +27,7 @@ enum SortOption: String, CaseIterable {
         case .name: return "textformat"
         case .date: return "calendar"
         case .modified: return "clock"
+        case .size: return "arrow.up.arrow.down.square"
         }
     }
 }
-
