@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Combine
 
 enum FilePermission: String, CaseIterable {
@@ -91,7 +92,27 @@ class FileManagerViewModel: ObservableObject {
                     let fileSize = resourceValues?.fileSize ?? 0
                     let creationDate = resourceValues?.creationDate ?? Date()
                     let modificationDate = resourceValues?.contentModificationDate ?? Date()
-                    let fileSystemItem = FileSystemItem(name: url.lastPathComponent, isDirectory: isDirectory, url: url, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
+                    
+                    var appIcon: UIImage?
+                    var appName: String?
+                    
+                    if isDirectory, url.pathExtension == "app" {
+                        let infoPlistURL = url.appendingPathComponent("Info.plist")
+                        if let infoPlistData = try? Data(contentsOf: infoPlistURL),
+                           let infoPlist = try? PropertyListSerialization.propertyList(from: infoPlistData, options: [], format: nil) as? [String: Any] {
+                            
+                            if let bundleIconFile = infoPlist["CFBundleIconFile"] as? String {
+                                let iconPath = url.appendingPathComponent(bundleIconFile).path
+                                appIcon = UIImage(contentsOfFile: iconPath)
+                            }
+                            
+                            if let bundleExecutable = infoPlist["CFBundleExecutable"] as? String {
+                                appName = bundleExecutable
+                            }
+                        }
+                    }
+                    
+                    let fileSystemItem = FileSystemItem(name: url.lastPathComponent, isDirectory: isDirectory, url: url, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink, appIcon: appIcon, appName: appName)
                     DispatchQueue.main.async {
                         self.items.append(fileSystemItem)
                     }
@@ -313,6 +334,9 @@ class FileManagerViewModel: ObservableObject {
     case .size:
         items.sort { $0.size > $1.size }
         rootItems.sort { $0.size > $1.size }
+    case .reverseName:
+        items.sort { $0.name.lowercased() > $1.name.lowercased() }
+        rootItems.sort { $0.name.lowercased() > $1.name.lowercased() }
     }
     filterItems()
 }

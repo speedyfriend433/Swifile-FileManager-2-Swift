@@ -6,28 +6,36 @@
  
 import Foundation
 
-enum SortOption: String, CaseIterable {
+enum SortOption: CaseIterable {
+    case name, date, modified, size, reverseName
     
-    case name
-    case date
-    case modified
-    case size
-
     var title: String {
         switch self {
-        case .name: return "Name"
-        case .date: return "Date Created"
-        case .modified: return "Date Modified"
-        case .size: return "Size"
+        case .name:
+            return "Name"
+        case .date:
+            return "Creation Date"
+        case .modified:
+            return "Modification Date"
+        case .size:
+            return "Size"
+        case .reverseName:
+            return "Reverse Name"
         }
     }
-
+    
     var icon: String {
         switch self {
-        case .name: return "textformat"
-        case .date: return "calendar"
-        case .modified: return "clock"
-        case .size: return "arrow.up.arrow.down.square"
+        case .name:
+            return "textformat"
+        case .date:
+            return "calendar"
+        case .modified:
+            return "clock"
+        case .size:
+            return "arrow.up.arrow.down.square"
+        case .reverseName:
+            return "textformat.size"
         }
     }
 }

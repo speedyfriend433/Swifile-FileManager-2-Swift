@@ -5,6 +5,7 @@
 //
  
 import Foundation
+import UIKit
 
 struct FileSystemItem: Identifiable {
     let id = UUID()
@@ -15,7 +16,9 @@ struct FileSystemItem: Identifiable {
     let creationDate: Date
     let modificationDate: Date
     let isSymlink: Bool
-
+    var appIcon: UIImage?
+    var appName: String?
+    
     var isTextFile: Bool {
         let textFileExtensions = ["txt", "xml", "entitlements", "xm", "py", "swift", "x", "hwpx", "js", "hwp"]
         return textFileExtensions.contains(url.pathExtension.lowercased())
