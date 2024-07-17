@@ -100,8 +100,15 @@ class FileManagerViewModel: ObservableObject {
         }
     }
 
+    private func shouldFetchAppDetails(for url: URL) -> Bool {
+        let path = url.path
+        return path.hasPrefix("/var/containers/Bundle/Application") || path.hasPrefix("/private/var/containers/Bundle/Application")
+    }
+
+    // Fetch app icon
     private func getAppIcon(for url: URL) -> UIImage? {
-        guard let workspace = NSClassFromString("LSApplicationWorkspace") as? NSObject.Type,
+        guard shouldFetchAppDetails(for: url),
+              let workspace = NSClassFromString("LSApplicationWorkspace") as? NSObject.Type,
               let workspaceInstance = workspace.perform(NSSelectorFromString("defaultWorkspace")).takeUnretainedValue() as? NSObject,
               let apps = workspaceInstance.perform(NSSelectorFromString("allInstalledApplications")).takeUnretainedValue() as? [NSObject] else {
             return nil
@@ -120,8 +127,10 @@ class FileManagerViewModel: ObservableObject {
         return nil
     }
 
+    // Fetch app name
     private func getAppName(for url: URL) -> String? {
-        guard let workspace = NSClassFromString("LSApplicationWorkspace") as? NSObject.Type,
+        guard shouldFetchAppDetails(for: url),
+              let workspace = NSClassFromString("LSApplicationWorkspace") as? NSObject.Type,
               let workspaceInstance = workspace.perform(NSSelectorFromString("defaultWorkspace")).takeUnretainedValue() as? NSObject,
               let apps = workspaceInstance.perform(NSSelectorFromString("allInstalledApplications")).takeUnretainedValue() as? [NSObject] else {
             return nil
