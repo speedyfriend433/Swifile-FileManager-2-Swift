@@ -1,6 +1,7 @@
 import Foundation
-import UIKit
 import Combine
+import UIKit
+import MobileCoreServices
 
 enum FilePermission: String, CaseIterable {
     case userRead = "User Read"
@@ -50,27 +51,13 @@ class FileManagerViewModel: ObservableObject {
         }
     }
     @Published var isSearching: Bool = false
-    var directory: URL {
-        didSet {
-            FileManagerViewModel.saveLastDirectoryPath(directory)
-        }
-    }
+    var directory: URL
     private let fileManager = FileManager.default
     private var rootSearchCancellable: AnyCancellable?
 
-    init(directory: URL = FileManagerViewModel.loadLastDirectoryPath() ?? URL(fileURLWithPath: "/var")) {
+    init(directory: URL = URL(fileURLWithPath: "/var")) {
         self.directory = directory
         loadFiles()
-    }
-
-    static let lastDirectoryKey = "lastDirectoryPath"
-
-    static func saveLastDirectoryPath(_ directory: URL) {
-        UserDefaults.standard.set(directory, forKey: lastDirectoryKey)
-    }
-
-    static func loadLastDirectoryPath() -> URL? {
-        return UserDefaults.standard.url(forKey: lastDirectoryKey)
     }
 
     func formattedFileSize(_ size: Int) -> String {
@@ -92,26 +79,8 @@ class FileManagerViewModel: ObservableObject {
                     let fileSize = resourceValues?.fileSize ?? 0
                     let creationDate = resourceValues?.creationDate ?? Date()
                     let modificationDate = resourceValues?.contentModificationDate ?? Date()
-                    
-                    var appIcon: UIImage?
-                    var appName: String?
-                    
-                    if isDirectory, url.pathExtension == "app" {
-                        let infoPlistURL = url.appendingPathComponent("Info.plist")
-                        if let infoPlistData = try? Data(contentsOf: infoPlistURL),
-                           let infoPlist = try? PropertyListSerialization.propertyList(from: infoPlistData, options: [], format: nil) as? [String: Any] {
-                            
-                            if let bundleIconFile = infoPlist["CFBundleIconFile"] as? String {
-                                let iconPath = url.appendingPathComponent(bundleIconFile).path
-                                appIcon = UIImage(contentsOfFile: iconPath)
-                            }
-                            
-                            if let bundleExecutable = infoPlist["CFBundleExecutable"] as? String {
-                                appName = bundleExecutable
-                            }
-                        }
-                    }
-                    
+                    let appIcon = self.getAppIcon(for: url)
+                    let appName = self.getAppName(for: url)
                     let fileSystemItem = FileSystemItem(name: url.lastPathComponent, isDirectory: isDirectory, url: url, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink, appIcon: appIcon, appName: appName)
                     DispatchQueue.main.async {
                         self.items.append(fileSystemItem)
@@ -129,6 +98,41 @@ class FileManagerViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    private func getAppIcon(for url: URL) -> UIImage? {
+        guard let workspace = NSClassFromString("LSApplicationWorkspace") as? NSObject.Type,
+              let workspaceInstance = workspace.perform(NSSelectorFromString("defaultWorkspace")).takeUnretainedValue() as? NSObject,
+              let apps = workspaceInstance.perform(NSSelectorFromString("allInstalledApplications")).takeUnretainedValue() as? [NSObject] else {
+            return nil
+        }
+
+        for app in apps {
+            if let appPath = app.perform(NSSelectorFromString("bundleURL")).takeUnretainedValue() as? URL, appPath == url {
+                if let icons = app.perform(NSSelectorFromString("icon")).takeUnretainedValue() as? [String: Any],
+                   let iconFiles = icons["CFBundleIconFiles"] as? [String],
+                   let iconFile = iconFiles.last,
+                   let iconImage = UIImage(named: iconFile) {
+                    return iconImage
+                }
+            }
+        }
+        return nil
+    }
+
+    private func getAppName(for url: URL) -> String? {
+        guard let workspace = NSClassFromString("LSApplicationWorkspace") as? NSObject.Type,
+              let workspaceInstance = workspace.perform(NSSelectorFromString("defaultWorkspace")).takeUnretainedValue() as? NSObject,
+              let apps = workspaceInstance.perform(NSSelectorFromString("allInstalledApplications")).takeUnretainedValue() as? [NSObject] else {
+            return nil
+        }
+
+        for app in apps {
+            if let appPath = app.perform(NSSelectorFromString("bundleURL")).takeUnretainedValue() as? URL, appPath == url {
+                return app.perform(NSSelectorFromString("localizedName")).takeUnretainedValue() as? String
+            }
+        }
+        return nil
     }
 
     func showFilePermissions(for item: FileSystemItem) {
@@ -321,25 +325,25 @@ class FileManagerViewModel: ObservableObject {
     }
 
     func sortItems() {
-    switch sortOption {
-    case .name:
-        items.sort { $0.name.lowercased() < $1.name.lowercased() }
-        rootItems.sort { $0.name.lowercased() < $1.name.lowercased() }
-    case .date:
-        items.sort { $0.creationDate < $1.creationDate }
-        rootItems.sort { $0.creationDate < $1.creationDate }
-    case .modified:
-        items.sort { $0.modificationDate < $1.modificationDate }
-        rootItems.sort { $0.modificationDate < $1.modificationDate }
-    case .size:
-        items.sort { $0.size > $1.size }
-        rootItems.sort { $0.size > $1.size }
-    case .reverseName:
-        items.sort { $0.name.lowercased() > $1.name.lowercased() }
-        rootItems.sort { $0.name.lowercased() > $1.name.lowercased() }
+        switch sortOption {
+        case .name:
+            items.sort { $0.name.lowercased() < $1.name.lowercased() }
+            rootItems.sort { $0.name.lowercased() < $1.name.lowercased() }
+        case .date:
+            items.sort { $0.creationDate < $1.creationDate }
+            rootItems.sort { $0.creationDate < $1.creationDate }
+        case .modified:
+            items.sort { $0.modificationDate < $1.modificationDate }
+            rootItems.sort { $0.modificationDate < $1.modificationDate }
+        case .size:
+            items.sort { $0.size > $1.size }
+            rootItems.sort { $0.size > $1.size }
+        case .reverseName:
+            items.sort { $0.name.lowercased() > $1.name.lowercased() }
+            rootItems.sort { $0.name.lowercased() > $1.name.lowercased() }
+        }
+        filterItems()
     }
-    filterItems()
-}
 
     func filterItems() {
         let sourceItems: [FileSystemItem]

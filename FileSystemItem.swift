@@ -23,17 +23,17 @@ struct FileSystemItem: Identifiable {
         let textFileExtensions = ["txt", "xml", "entitlements", "xm", "py", "swift", "x", "hwpx", "js", "hwp"]
         return textFileExtensions.contains(url.pathExtension.lowercased())
     }
-
+    
     var isPlistFile: Bool {
         let plistFileExtensions = ["plist", "entitlements", "strings"]
         return plistFileExtensions.contains(url.pathExtension.lowercased())
     }
-
+    
     var isHexFile: Bool {
         let hexFileExtensions = ["hex", "dylib"]
         return hexFileExtensions.contains(url.pathExtension.lowercased())
     }
-
+    
     var isImageFile: Bool {
         let imageFileExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "tiff"]
         return imageFileExtensions.contains(url.pathExtension.lowercased())
@@ -43,13 +43,16 @@ struct FileSystemItem: Identifiable {
         let videoFileExtensions = ["mov", "mp4"]
         return videoFileExtensions.contains(url.pathExtension.lowercased())
     }
-
+    
     var isAudioFile: Bool {
-        let audioFileExtensions = ["mp3"]
+        let audioFileExtensions = ["mp3", "m4a", "wav", "flac"]
         return audioFileExtensions.contains(url.pathExtension.lowercased())
     }
-
-    var formattedFileSize: String {
-        ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
+    
+    var formattedSize: String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useKB, .useMB, .useGB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: Int64(size))
     }
 }
