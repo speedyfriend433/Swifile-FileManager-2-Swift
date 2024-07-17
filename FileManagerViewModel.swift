@@ -2,6 +2,8 @@ import Foundation
 import Combine
 import UIKit
 import MobileCoreServices
+import ObjectiveC
+import CoreServices
 
 enum FilePermission: String, CaseIterable {
     case userRead = "User Read"
@@ -101,48 +103,37 @@ class FileManagerViewModel: ObservableObject {
     }
 
     private func shouldFetchAppDetails(for url: URL) -> Bool {
-        let path = url.path
-        return path.hasPrefix("/var/containers/Bundle/Application") || path.hasPrefix("/private/var/containers/Bundle/Application")
-    }
+    let path = url.path
+    return path.hasPrefix("/var/containers/Bundle/Application") || path.hasPrefix("/private/var/containers/Bundle/Application")
+}
 
-    // Fetch app icon
     private func getAppIcon(for url: URL) -> UIImage? {
-        guard shouldFetchAppDetails(for: url),
-              let workspace = NSClassFromString("LSApplicationWorkspace") as? NSObject.Type,
-              let workspaceInstance = workspace.perform(NSSelectorFromString("defaultWorkspace")).takeUnretainedValue() as? NSObject,
-              let apps = workspaceInstance.perform(NSSelectorFromString("allInstalledApplications")).takeUnretainedValue() as? [NSObject] else {
-            return nil
-        }
+    let workspace = LSApplicationWorkspace.default()
+    let installedApps = workspace.allInstalledApplications()
 
-        for app in apps {
-            if let appPath = app.perform(NSSelectorFromString("bundleURL")).takeUnretainedValue() as? URL, appPath == url {
-                if let icons = app.perform(NSSelectorFromString("icon")).takeUnretainedValue() as? [String: Any],
-                   let iconFiles = icons["CFBundleIconFiles"] as? [String],
-                   let iconFile = iconFiles.last,
-                   let iconImage = UIImage(named: iconFile) {
+    for case let app as LSApplicationProxy in installedApps {
+        if let appPath = app.bundleURL?.path, appPath == url.path {
+            if let icons = app.iconFiles, let iconFile = icons.last {
+                if let iconImage = UIImage(named: iconFile) {
                     return iconImage
                 }
             }
         }
-        return nil
     }
+    return nil
+}
 
-    // Fetch app name
     private func getAppName(for url: URL) -> String? {
-        guard shouldFetchAppDetails(for: url),
-              let workspace = NSClassFromString("LSApplicationWorkspace") as? NSObject.Type,
-              let workspaceInstance = workspace.perform(NSSelectorFromString("defaultWorkspace")).takeUnretainedValue() as? NSObject,
-              let apps = workspaceInstance.perform(NSSelectorFromString("allInstalledApplications")).takeUnretainedValue() as? [NSObject] else {
-            return nil
-        }
+    let workspace = LSApplicationWorkspace.default()
+    let installedApps = workspace.allInstalledApplications()
 
-        for app in apps {
-            if let appPath = app.perform(NSSelectorFromString("bundleURL")).takeUnretainedValue() as? URL, appPath == url {
-                return app.perform(NSSelectorFromString("localizedName")).takeUnretainedValue() as? String
-            }
+    for case let app as LSApplicationProxy in installedApps {
+        if let appPath = app.bundleURL?.path, appPath == url.path {
+            return app.localizedName
         }
-        return nil
     }
+    return nil
+}
 
     func showFilePermissions(for item: FileSystemItem) {
         selectedFile = item
