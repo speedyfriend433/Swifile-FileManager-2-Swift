@@ -53,6 +53,7 @@ class FileManagerViewModel: ObservableObject {
         }
     }
     @Published var isSearching: Bool = false
+    
     var directory: URL
     private let fileManager = FileManager.default
     private var rootSearchCancellable: AnyCancellable?
@@ -81,9 +82,7 @@ class FileManagerViewModel: ObservableObject {
                     let fileSize = resourceValues?.fileSize ?? 0
                     let creationDate = resourceValues?.creationDate ?? Date()
                     let modificationDate = resourceValues?.contentModificationDate ?? Date()
-                    let appIcon = self.getAppIcon(for: url)
-                    let appName = self.getAppName(for: url)
-                    let fileSystemItem = FileSystemItem(name: url.lastPathComponent, isDirectory: isDirectory, url: url, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink, appIcon: appIcon, appName: appName)
+                    let fileSystemItem = FileSystemItem(name: url.lastPathComponent, isDirectory: isDirectory, url: url, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
                     DispatchQueue.main.async {
                         self.items.append(fileSystemItem)
                     }
@@ -101,39 +100,6 @@ class FileManagerViewModel: ObservableObject {
             }
         }
     }
-
-    private func shouldFetchAppDetails(for url: URL) -> Bool {
-    let path = url.path
-    return path.hasPrefix("/var/containers/Bundle/Application") || path.hasPrefix("/private/var/containers/Bundle/Application")
-}
-
-    private func getAppIcon(for url: URL) -> UIImage? {
-    let workspace = LSApplicationWorkspace.default()
-    let installedApps = workspace.allInstalledApplications()
-
-    for case let app as LSApplicationProxy in installedApps {
-        if let appPath = app.bundleURL?.path, appPath == url.path {
-            if let icons = app.iconFiles, let iconFile = icons.last {
-                if let iconImage = UIImage(named: iconFile) {
-                    return iconImage
-                }
-            }
-        }
-    }
-    return nil
-}
-
-    private func getAppName(for url: URL) -> String? {
-    let workspace = LSApplicationWorkspace.default()
-    let installedApps = workspace.allInstalledApplications()
-
-    for case let app as LSApplicationProxy in installedApps {
-        if let appPath = app.bundleURL?.path, appPath == url.path {
-            return app.localizedName
-        }
-    }
-    return nil
-}
 
     func showFilePermissions(for item: FileSystemItem) {
         selectedFile = item
@@ -315,7 +281,7 @@ class FileManagerViewModel: ObservableObject {
                 self.results.append(contentsOf: tempResults)
             }
         } catch {
-            print("Failed to search files: (error.localizedDescription)")
+            print("Failed to search files: \(error.localizedDescription)")
         }
     }
 
