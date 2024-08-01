@@ -5,6 +5,11 @@ import MobileCoreServices
 import ObjectiveC
 import CoreServices
 
+import Foundation
+import Combine
+import UIKit
+import MobileCoreServices
+
 enum FilePermission: String, CaseIterable {
     case userRead = "User Read"
     case userWrite = "User Write"
@@ -53,7 +58,6 @@ class FileManagerViewModel: ObservableObject {
         }
     }
     @Published var isSearching: Bool = false
-    
     var directory: URL
     private let fileManager = FileManager.default
     private var rootSearchCancellable: AnyCancellable?
@@ -75,6 +79,12 @@ class FileManagerViewModel: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let directoryContents = try self.fileManager.contentsOfDirectory(at: self.directory, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
+                
+                // Clear items before reloading
+                DispatchQueue.main.async {
+                    self.items.removeAll()
+                }
+                
                 for url in directoryContents {
                     let resourceValues = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
                     let isDirectory = resourceValues?.isDirectory ?? false
