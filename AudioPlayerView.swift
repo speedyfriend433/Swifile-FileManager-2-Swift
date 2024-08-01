@@ -19,9 +19,11 @@ struct AudioPlayerView: UIViewControllerRepresentable {
             guard let player = player else { return }
             if player.isPlaying {
                 player.pause()
+                stopTimer()
                 isPlaying = false
             } else {
                 player.play()
+                startTimer()
                 isPlaying = true
             }
         }
@@ -32,9 +34,12 @@ struct AudioPlayerView: UIViewControllerRepresentable {
                 guard let self = self, let player = self.player else { return }
                 let currentTime = player.currentTime
                 let duration = player.duration
-                let progress = currentTime / duration
-                DispatchQueue.main.async {
-                    // Update progress here
+                if duration > 0 {
+                    let progress = currentTime / duration
+                    DispatchQueue.main.async {
+                        // Update progress here
+                        print("Progress: \(progress)")
+                    }
                 }
             }
         }

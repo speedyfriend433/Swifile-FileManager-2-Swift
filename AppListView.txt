@@ -1,0 +1,38 @@
+import SwiftUI
+
+struct AppListView: View {
+    @ObservedObject var viewModel: FileManagerViewModel
+
+    var body: some View {
+        List(viewModel.installedApps) { app in
+            HStack {
+                if let appIcon = app.appIcon {
+                    Image(uiImage: appIcon)
+                        .resizable()
+                        .frame(width: 40, height: 40)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    Image(systemName: "app.fill")
+                        .resizable()
+                        .frame(width: 40, height: 40)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                VStack(alignment: .leading) {
+                    Text(app.appName)
+                        .font(.headline)
+                    Text(app.bundleIdentifier)
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                }
+            }
+        }
+        .navigationTitle("Installed Apps")
+    }
+}
+
+struct AppListView_Previews: PreviewProvider {
+    static var previews: some View {
+        let viewModel = FileManagerViewModel()
+        AppListView(viewModel: viewModel)
+    }
+}

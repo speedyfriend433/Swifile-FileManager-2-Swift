@@ -35,7 +35,7 @@ struct DirectoryView: View {
     init(directory: URL) {
         _viewModel = ObservedObject(wrappedValue: FileManagerViewModel(directory: directory))
     }
-    
+
     var body: some View {
         VStack {
             if showingSearchBar {
@@ -46,7 +46,7 @@ struct DirectoryView: View {
                 .pickerStyle(SegmentedPickerStyle())
                 .padding()
             }
-            
+
             if showingSearchBar {
                 SearchBar(text: $viewModel.searchQuery, onSearchButtonClicked: {
                     hideKeyboard()
@@ -61,7 +61,7 @@ struct DirectoryView: View {
                 ProgressView("Searching...")
                     .padding()
             }
-            
+
             List(selection: $viewModel.selectedItems) {
                 ForEach(viewModel.filteredItems) { item in
                     NavigationLink(destination: destinationView(for: item)) {
@@ -73,19 +73,18 @@ struct DirectoryView: View {
                                 Image(systemName: "folder")
                             } else if item.isSymlink {
                                 Image(systemName: "link")
-                            } else if let appIcon = item.appIcon {
-                                Image(uiImage: appIcon)
-                                    .resizable()
-                                    .frame(width: 24, height: 24)
                             } else {
                                 Image(systemName: "doc")
                             }
                             VStack(alignment: .leading) {
                                 Text(item.name)
-                                Spacer()
-                                if !item.isDirectory {
-                                    Text(viewModel.formattedFileSize(item.size))
-                                }
+                                Text(item.formattedSize)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            if !item.isDirectory {
+                                Text(viewModel.formattedFileSize(item.size))
                             }
                             Button(action: {
                                 viewModel.showFilePermissions(for: item)
@@ -125,9 +124,22 @@ struct DirectoryView: View {
             }
             .navigationTitle(viewModel.directory.lastPathComponent)
             .navigationBarItems(leading: editButton, trailing: trailingNavBarItems)
+            .refreshable {
+                viewModel.loadFiles()
+            }
         }
         .actionSheet(isPresented: $showingActionSheet) {
-            actionSheet
+            ActionSheet(title: Text("Add New Item"), message: Text("What would you like to add?"), buttons: [
+                .default(Text("Folder")) {
+                    isAddingDirectory = true
+                    showingAddItemSheet = true
+                },
+                .default(Text("File")) {
+                    isAddingDirectory = false
+                    showingAddItemSheet = true
+                },
+                .cancel()
+            ])
         }
         .sheet(isPresented: $showingAddItemSheet) {
             AddItemView(isPresented: $showingAddItemSheet, isDirectory: isAddingDirectory, existingNames: viewModel.items.map { $0.name }) { name in
@@ -173,7 +185,7 @@ struct DirectoryView: View {
         }
     }
 
-    var editButton: some View {
+    private var editButton: some View {
         Button(action: {
             withAnimation {
                 isEditing.toggle()
@@ -184,7 +196,7 @@ struct DirectoryView: View {
         }
     }
 
-    var trailingNavBarItems: some View {
+    private var trailingNavBarItems: some View {
         HStack {
             Button(action: {
                 showingActionSheet = true
@@ -215,21 +227,7 @@ struct DirectoryView: View {
         }
     }
 
-    var actionSheet: ActionSheet {
-        ActionSheet(title: Text("Add New Item"), message: Text("What would you like to add?"), buttons: [
-            .default(Text("Folder")) {
-                isAddingDirectory = true
-                showingAddItemSheet = true
-            },
-            .default(Text("File")) {
-                isAddingDirectory = false
-                showingAddItemSheet = true
-            },
-            .cancel()
-        ])
-    }
-
-    func destinationView(for item: FileSystemItem) -> some View {
+    private func destinationView(for item: FileSystemItem) -> some View {
         if item.isDirectory {
             if item.isSymlink {
                 if let resolvedURL = resolveSymlink(at: item.url) {
@@ -257,11 +255,11 @@ struct DirectoryView: View {
         }
     }
 
-    func resolveSymlink(at url: URL) -> URL? {
+    private func resolveSymlink(at url: URL) -> URL? {
         do {
             let destination = try FileManager.default.destinationOfSymbolicLink(atPath: url.path)
             let resolvedURL = URL(fileURLWithPath: destination)
-            
+
             if FileManager.default.fileExists(atPath: resolvedURL.path) {
                 return resolvedURL
             } else {
@@ -273,10 +271,4 @@ struct DirectoryView: View {
             return nil
         }
     }
-}
-
-struct DirectoryView_Previews: PreviewProvider {
-    static var previews: some View {
-        DirectoryView(directory: URL(fileURLWithPath:"/"))
-}
 }
