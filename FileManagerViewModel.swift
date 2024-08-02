@@ -5,11 +5,6 @@ import MobileCoreServices
 import ObjectiveC
 import CoreServices
 
-import Foundation
-import Combine
-import UIKit
-import MobileCoreServices
-
 enum FilePermission: String, CaseIterable {
     case userRead = "User Read"
     case userWrite = "User Write"
@@ -40,6 +35,11 @@ class FileManagerViewModel: ObservableObject {
             sortItems()
         }
     }
+    @Published var showHiddenFiles: Bool = false {
+    didSet {
+        filterItems()
+    }
+}
     @Published var searchQuery: String = "" {
         didSet {
             if searchScope == .current {
@@ -68,48 +68,58 @@ class FileManagerViewModel: ObservableObject {
     }
 
     func formattedFileSize(_ size: Int) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = [.useKB, .useMB, .useGB]
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: Int64(size))
-    }
+    let formatter = ByteCountFormatter()
+    formatter.allowedUnits = [.useKB, .useMB, .useGB]
+    formatter.countStyle = .file
+    return formatter.string(fromByteCount: Int64(size))
+}
 
     func loadFiles() {
-        isSearching = true
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let directoryContents = try self.fileManager.contentsOfDirectory(at: self.directory, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
+    isSearching = true
+    DispatchQueue.global(qos: .userInitiated).async {
+        do {
+            let directoryContents = try self.fileManager.contentsOfDirectory(at: self.directory, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey], options: [])
+            
+            // Clear items before reloading
+            DispatchQueue.main.async {
+                self.items.removeAll()
+            }
+            
+            for url in directoryContents {
+                let resourceValues = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
+                let isDirectory = resourceValues?.isDirectory ?? false
+                let isSymlink = resourceValues?.isSymbolicLink ?? false
+                let fileSize = resourceValues?.fileSize ?? 0
+                let creationDate = resourceValues?.creationDate ?? Date()
+                let modificationDate = resourceValues?.contentModificationDate ?? Date()
                 
-                // Clear items before reloading
-                DispatchQueue.main.async {
-                    self.items.removeAll()
-                }
+                let fileSystemItem = FileSystemItem(
+                    name: url.lastPathComponent,
+                    isDirectory: isDirectory,
+                    url: url,
+                    size: fileSize,
+                    creationDate: creationDate,
+                    modificationDate: modificationDate,
+                    isSymlink: isSymlink
+                )
                 
-                for url in directoryContents {
-                    let resourceValues = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey, .isSymbolicLinkKey])
-                    let isDirectory = resourceValues?.isDirectory ?? false
-                    let isSymlink = resourceValues?.isSymbolicLink ?? false
-                    let fileSize = resourceValues?.fileSize ?? 0
-                    let creationDate = resourceValues?.creationDate ?? Date()
-                    let modificationDate = resourceValues?.contentModificationDate ?? Date()
-                    let fileSystemItem = FileSystemItem(name: url.lastPathComponent, isDirectory: isDirectory, url: url, size: fileSize, creationDate: creationDate, modificationDate: modificationDate, isSymlink: isSymlink)
-                    DispatchQueue.main.async {
-                        self.items.append(fileSystemItem)
-                    }
-                }
                 DispatchQueue.main.async {
-                    self.sortItems()
-                    self.filterItems()
-                    self.isSearching = false
+                    self.items.append(fileSystemItem)
                 }
-            } catch {
-                DispatchQueue.main.async {
-                    self.isSearching = false
-                    print("Failed to load files: \(error.localizedDescription)")
-                }
+            }
+            DispatchQueue.main.async {
+                self.sortItems()
+                self.filterItems()
+                self.isSearching = false
+            }
+        } catch {
+            DispatchQueue.main.async {
+                self.isSearching = false
+                print("Failed to load files: \(error.localizedDescription)")
             }
         }
     }
+}
 
     func showFilePermissions(for item: FileSystemItem) {
         selectedFile = item
@@ -322,20 +332,27 @@ class FileManagerViewModel: ObservableObject {
     }
 
     func filterItems() {
-        let sourceItems: [FileSystemItem]
-        switch searchScope {
-        case .current:
-            sourceItems = items
-        case .root:
-            sourceItems = rootItems
-        }
-
-        if searchQuery.isEmpty {
-            filteredItems = searchScope == .current ? sourceItems : []
-        } else {
-            filteredItems = sourceItems.filter { $0.name.lowercased().contains(searchQuery.lowercased()) }
-        }
+    let sourceItems: [FileSystemItem]
+    switch searchScope {
+    case .current:
+        sourceItems = items
+    case .root:
+        sourceItems = rootItems
     }
+
+    let filteredByQuery: [FileSystemItem]
+    if searchQuery.isEmpty {
+        filteredByQuery = searchScope == .current ? sourceItems : []
+    } else {
+        filteredByQuery = sourceItems.filter { $0.name.lowercased().contains(searchQuery.lowercased()) }
+    }
+
+    if showHiddenFiles {
+        filteredItems = filteredByQuery
+    } else {
+        filteredItems = filteredByQuery.filter { !$0.name.hasPrefix(".") }
+    }
+}
 
     func deleteFile(at url: URL) {
         do {
