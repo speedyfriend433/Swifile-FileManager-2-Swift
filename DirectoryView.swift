@@ -35,139 +35,52 @@ struct DirectoryView: View {
     init(directory: URL) {
         _viewModel = ObservedObject(wrappedValue: FileManagerViewModel(directory: directory))
     }
-
+    
     var body: some View {
-        VStack {
-            if showingSearchBar {
-                Picker("Search Scope", selection: $viewModel.searchScope) {
-                    Text(SearchScope.current.title).tag(SearchScope.current)
-                    Text(SearchScope.root.title).tag(SearchScope.root)
-                }
-                .pickerStyle(SegmentedPickerStyle())
+    VStack {
+        if showingSearchBar {
+            searchBarView
+        }
+
+        if viewModel.isSearching {
+            ProgressView("Searching...")
                 .padding()
-            }
+        }
 
-            if showingSearchBar {
-                SearchBar(text: $viewModel.searchQuery, onSearchButtonClicked: {
-                    hideKeyboard()
-                    if viewModel.searchScope == .root {
-                        viewModel.loadRootFiles()
-                    }
-                })
-                .padding(.horizontal)
-            }
-
-            if viewModel.isSearching {
-                ProgressView("Searching...")
-                    .padding()
-            }
-
-            List(selection: $viewModel.selectedItems) {
-                ForEach(viewModel.filteredItems) { item in
-                    NavigationLink(destination: destinationView(for: item)) {
-                        HStack {
-                            if isEditing {
-                                Image(systemName: viewModel.selectedItems.contains(item.id) ? "checkmark.circle.fill" : "circle")
-                            }
-                            if item.isDirectory {
-                                Image(systemName: "folder")
-                            } else if item.isSymlink {
-                                Image(systemName: "link")
-                            } else {
-                                Image(systemName: "doc")
-                            }
-                            VStack(alignment: .leading) {
-                                Text(item.name)
-                                Text(item.formattedSize)
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                            if !item.isDirectory {
-                                Text(viewModel.formattedFileSize(item.size))
-                            }
-                            Button(action: {
-                                viewModel.showFilePermissions(for: item)
-                            }) {
-                                Image(systemName: "info.circle")
-                            }
-                            .buttonStyle(BorderlessButtonStyle())
-                            .padding(.leading, 10)
-                        }
-                        .contextMenu {
-                            Button(action: {
-                                itemToRenameOrCopy = item
-                                isRenaming = true
-                                showingRenameCopySheet = true
-                            }) {
-                                Text("Rename")
-                                Image(systemName: "pencil")
-                            }
-                            Button(action: {
-                                itemToRenameOrCopy = item
-                                isRenaming = false
-                                showingRenameCopySheet = true
-                            }) {
-                                Text("Copy")
-                                Image(systemName: "doc.on.doc")
-                            }
-                            Button(action: {
-                                itemToDelete = item
-                                showingDeleteAlert = true
-                            }) {
-                                Text("Delete")
-                                Image(systemName: "trash")
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle(viewModel.directory.lastPathComponent)
-            .navigationBarItems(leading: editButton, trailing: trailingNavBarItems)
-            .refreshable {
-                viewModel.loadFiles()
+        fileListView
+    }
+    .navigationBarTitle(viewModel.directory.path, displayMode: .inline)
+    .navigationBarItems(leading: editButton, trailing: trailingNavBarItems)
+    .actionSheet(isPresented: $showingActionSheet) {
+        actionSheet
+    }
+    .sheet(isPresented: $showingAddItemSheet) {
+        AddItemView(isPresented: $showingAddItemSheet, isDirectory: isAddingDirectory, existingNames: viewModel.items.map { $0.name }) { name in
+            if isAddingDirectory {
+                viewModel.createFolder(named: name)
+            } else {
+                viewModel.createFile(named: name)
             }
         }
-        .actionSheet(isPresented: $showingActionSheet) {
-            ActionSheet(title: Text("Add New Item"), message: Text("What would you like to add?"), buttons: [
-                .default(Text("Folder")) {
-                    isAddingDirectory = true
-                    showingAddItemSheet = true
-                },
-                .default(Text("File")) {
-                    isAddingDirectory = false
-                    showingAddItemSheet = true
-                },
-                .cancel()
-            ])
-        }
-        .sheet(isPresented: $showingAddItemSheet) {
-            AddItemView(isPresented: $showingAddItemSheet, isDirectory: isAddingDirectory, existingNames: viewModel.items.map { $0.name }) { name in
-                if isAddingDirectory {
-                    viewModel.createFolder(named: name)
+    }
+    .sheet(isPresented: $showingRenameCopySheet) {
+        RenameCopyView(newName: $newName, isPresented: $showingRenameCopySheet, isRename: isRenaming) { name in
+            if let item = itemToRenameOrCopy {
+                if isRenaming {
+                    viewModel.renameFile(at: item.url, to: name)
                 } else {
-                    viewModel.createFile(named: name)
+                    viewModel.copyFile(at: item.url, to: name)
                 }
             }
         }
-        .sheet(isPresented: $showingRenameCopySheet) {
-            RenameCopyView(newName: $newName, isPresented: $showingRenameCopySheet, isRename: isRenaming) { name in
-                if let item = itemToRenameOrCopy {
-                    if isRenaming {
-                        viewModel.renameFile(at: item.url, to: name)
-                    } else {
-                        viewModel.copyFile(at: item.url, to: name)
-                    }
-                }
-            }
-        }
-        .alert(isPresented: $showingStatusAlert) {
-            Alert(
-                title: Text("Status"),
-                message: Text(statusMessage),
-                dismissButton: .default(Text("OK"))
-            )
-        }
+    }
+    .alert(isPresented: $showingStatusAlert) {
+        Alert(
+            title: Text("Status"),
+            message: Text(statusMessage),
+            dismissButton: .default(Text("OK"))
+        )
+    }
         .alert(isPresented: $showingDeleteAlert) {
             Alert(
                 title: Text("Confirm Delete"),
@@ -184,6 +97,89 @@ struct DirectoryView: View {
             FilePermissionView(viewModel: viewModel, fileURL: selectedFile.url)
         }
     }
+    
+    private var searchBarView: some View {
+        VStack {
+            Picker("Search Scope", selection: $viewModel.searchScope) {
+                Text(SearchScope.current.title).tag(SearchScope.current)
+                Text(SearchScope.root.title).tag(SearchScope.root)
+            }
+            .pickerStyle(SegmentedPickerStyle())
+            .padding()
+            
+            SearchBar(text: $viewModel.searchQuery, onSearchButtonClicked: {
+                hideKeyboard()
+                if viewModel.searchScope == .root {
+                    viewModel.loadRootFiles()
+                }
+            })
+            .padding(.horizontal)
+        }
+    }
+    
+    private var fileListView: some View {
+        List(selection: $viewModel.selectedItems) {
+            ForEach(viewModel.filteredItems) { item in
+                NavigationLink(destination: destinationView(for: item)) {
+                    fileRow(for: item)
+                }
+            }
+        }
+    }
+    
+    private func fileRow(for item: FileSystemItem) -> some View {
+        HStack {
+            if isEditing {
+                Image(systemName: viewModel.selectedItems.contains(item.id) ? "checkmark.circle.fill" : "circle")
+            }
+            if item.isDirectory {
+                Image(systemName: "folder")
+            } else if item.isSymlink {
+                Image(systemName: "link")
+            } else {
+                Image(systemName: "doc")
+            }
+            VStack(alignment: .leading) {
+                Text(item.name)
+                if !item.isDirectory {
+                    Text(viewModel.formattedFileSize(item.size))
+                }
+            }
+            Spacer()
+            Button(action: {
+                viewModel.showFilePermissions(for: item)
+            }) {
+                Image(systemName: "info.circle")
+            }
+            .buttonStyle(BorderlessButtonStyle())
+            .padding(.leading, 10)
+        }
+        .contextMenu {
+            Button(action: {
+                itemToRenameOrCopy = item
+                isRenaming = true
+                showingRenameCopySheet = true
+            }) {
+                Text("Rename")
+                Image(systemName: "pencil")
+            }
+            Button(action: {
+                itemToRenameOrCopy = item
+                isRenaming = false
+                showingRenameCopySheet = true
+            }) {
+                Text("Copy")
+                Image(systemName: "doc.on.doc")
+            }
+            Button(action: {
+                itemToDelete = item
+                showingDeleteAlert = true
+            }) {
+                Text("Delete")
+                Image(systemName: "trash")
+            }
+        }
+    }
 
     private var editButton: some View {
         Button(action: {
@@ -195,7 +191,7 @@ struct DirectoryView: View {
             Text(isEditing ? "Done" : "Edit")
         }
     }
-
+    
     private var trailingNavBarItems: some View {
         HStack {
             Button(action: {
@@ -211,20 +207,40 @@ struct DirectoryView: View {
                 Image(systemName: "magnifyingglass")
             }
             Menu {
-                ForEach(SortOption.allCases, id: \.self) { option in
-                    Button(action: {
-                        viewModel.sortOption = option
-                    }) {
-                        Label(option.title, systemImage: option.icon)
-                    }
-                }
-            } label: {
-                HStack {
-                    Text("Sort")
-                    Image(systemName: "arrow.up.arrow.down")
-                }
+    ForEach(SortOption.allCases, id: \.self) { option in
+        Button(action: {
+            viewModel.sortOption = option
+        }) {
+            Label(option.title, systemImage: option.icon)
+        }
+    }
+    Button(action: {
+        viewModel.showHiddenFiles.toggle()
+    }) {
+        Label(viewModel.showHiddenFiles ? "Hide Hidden Files" : "Show Hidden Files", systemImage: viewModel.showHiddenFiles ? "eye.slash" : "eye")
+    }
+} label: {
+    HStack {
+        Text("Sort")
+        Image(systemName: "arrow.up.arrow.down")
+                
+                 }
             }
         }
+    }
+
+    private var actionSheet: ActionSheet {
+        ActionSheet(title: Text("Add New Item"), message: Text("What would you like to add?"), buttons: [
+            .default(Text("Folder")) {
+                isAddingDirectory = true
+                showingAddItemSheet = true
+            },
+            .default(Text("File")) {
+                isAddingDirectory = false
+                showingAddItemSheet = true
+            },
+            .cancel()
+        ])
     }
 
     private func destinationView(for item: FileSystemItem) -> some View {
@@ -259,7 +275,8 @@ struct DirectoryView: View {
         do {
             let destination = try FileManager.default.destinationOfSymbolicLink(atPath: url.path)
             let resolvedURL = URL(fileURLWithPath: destination)
-
+            
+            // Check if the resolved URL exists
             if FileManager.default.fileExists(atPath: resolvedURL.path) {
                 return resolvedURL
             } else {
