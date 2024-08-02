@@ -16,16 +16,14 @@ struct FileSystemItem: Identifiable {
     let creationDate: Date
     let modificationDate: Date
     let isSymlink: Bool
-    var appIcon: UIImage?
-    var appName: String?
     
     var isTextFile: Bool {
-        let textFileExtensions = ["txt", "xml", "entitlements", "xm", "py", "swift", "x", "hwpx", "js", "hwp"]
+        let textFileExtensions = ["txt", "xml", "entitlements", "swift", "js", "json"]
         return textFileExtensions.contains(url.pathExtension.lowercased())
     }
     
     var isPlistFile: Bool {
-        let plistFileExtensions = ["plist", "entitlements", "strings"]
+        let plistFileExtensions = ["plist", "strings", "loctable"]
         return plistFileExtensions.contains(url.pathExtension.lowercased())
     }
     
@@ -35,24 +33,17 @@ struct FileSystemItem: Identifiable {
     }
     
     var isImageFile: Bool {
-        let imageFileExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "tiff"]
+        let imageFileExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "car"]
         return imageFileExtensions.contains(url.pathExtension.lowercased())
     }
-
+    
     var isVideoFile: Bool {
-        let videoFileExtensions = ["mov", "mp4"]
+        let videoFileExtensions = ["mp4", "mov"]
         return videoFileExtensions.contains(url.pathExtension.lowercased())
     }
     
     var isAudioFile: Bool {
-        let audioFileExtensions = ["mp3", "m4a", "wav", "flac"]
+        let audioFileExtensions = ["mp3", "wav", "m4a"]
         return audioFileExtensions.contains(url.pathExtension.lowercased())
-    }
-    
-    var formattedSize: String {
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = [.useKB, .useMB, .useGB]
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: Int64(size))
     }
 }
